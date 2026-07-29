@@ -10,9 +10,10 @@ import org.bukkit.Particle
 import org.bukkit.entity.ArmorStand
 import org.bukkit.entity.Entity
 import org.bukkit.persistence.PersistentDataType
-import org.bukkit.scheduler.BukkitTask
+import io.papermc.paper.threadedregions.scheduler.ScheduledTask
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicInteger
 
 /**
  * Particle emitters are invisible marker entities carrying their params in PDC, so they persist with
@@ -29,11 +30,22 @@ class ParticleService(private val plugin: AwesomeArmorStandEditorPlugin, private
     private class Cached(val emitter: ParticleEmitter, val particle: Particle?, val dust: Particle.DustOptions?)
 
     private val markers = ConcurrentHashMap<Entity, Cached>()
-    private var tick = 0L
-    private var task: BukkitTask? = null
+    @Volatile private var tick = 0L
+    private var task: ScheduledTask? = null
 
+    /**
+     * Folia: 每個 tick 的預算是跨 region 共用的,實際發射動作分散在各 marker 自己的執行緒上,
+     * 所以改成 atomic 計數。這讓預算變成「近似」而非精確——對「別讓粒子吃光 tick」這個
+     * 目的來說夠用,而精確化的代價是把所有 region 同步起來,那正是 Folia 要避免的事。
+     */
+    private val budgetLeft = AtomicInteger(0)
+
+    /**
+     * Folia: 這個時鐘本身只讀插件自己的表、再把工作派給各 marker 的 EntityScheduler,
+     * 不碰任何世界狀態,所以掛在 global region 是合法的(不是把同步任務丟給 global)。
+     */
     fun start() {
-        task = plugin.server.scheduler.runTaskTimer(plugin, Runnable { run() }, 20L, 1L)
+        task = plugin.server.globalRegionScheduler.runAtFixedRate(plugin, { run() }, 20L, 1L)
     }
 
     fun stop() {
@@ -64,40 +76,58 @@ class ParticleService(private val plugin: AwesomeArmorStandEditorPlugin, private
         }
     }
 
-    /** One-time startup index of emitter markers in currently-loaded chunks. */
+    /**
+     * One-time startup index of emitter markers in currently-loaded chunks.
+     *
+     * Folia: 同 [EntityRegistry.indexLoaded] —— `chunk.entities` 要在擁有者 region 上讀。
+     */
     fun indexLoaded() {
-        for (world in plugin.server.worlds) for (chunk in world.loadedChunks) indexChunk(chunk)
+        for (world in plugin.server.worlds) for (chunk in world.loadedChunks) {
+            plugin.server.regionScheduler.execute(plugin, world, chunk.x, chunk.z) { indexChunk(chunk) }
+        }
     }
 
     fun removeForScene(sceneId: String) {
         val it = markers.keys.iterator()
         while (it.hasNext()) {
             val e = it.next()
-            if (e.persistentDataContainer.get(keys.scene, PersistentDataType.STRING) == sceneId) {
-                if (!e.isDead) e.remove(); it.remove()
-            }
+            // Folia: PDC 讀取與 remove() 都要在該實體擁有者的執行緒上做。先從表移除(這是
+            // 插件自己的狀態),實際判斷與刪除派給實體;判斷不成立就把它放回表裡。
+            it.remove()
+            e.scheduler.run(plugin, {
+                if (e.persistentDataContainer.get(keys.scene, PersistentDataType.STRING) == sceneId) {
+                    if (!e.isDead) e.remove()
+                } else {
+                    decode(e.persistentDataContainer.get(keys.emitter, PersistentDataType.STRING) ?: "")
+                        ?.let { markers[e] = build(it) }
+                }
+            }, null)
         }
     }
 
     private fun run() {
         if (markers.isEmpty()) return
         tick++
-        var budget = plugin.settings.particleBudget
+        budgetLeft.set(plugin.settings.particleBudget)
         val range = plugin.settings.particleRange.toDouble()
         val rangeSq = range * range
-        val it = markers.entries.iterator()
-        while (it.hasNext()) {
-            val entry = it.next()
-            val marker = entry.key
-            if (!marker.isValid) { it.remove(); continue }
-            val cached = entry.value
+        for ((marker, cached) in markers) {
             val e = cached.emitter
             if (cached.particle == null || e.rateTicks <= 0 || tick % e.rateTicks != 0L) continue
-            val loc = marker.location
-            if (loc.world?.players?.none { p -> p.location.distanceSquared(loc) <= rangeSq } != false) continue
-            emit(loc, cached)
-            if (--budget <= 0) break
+            if (budgetLeft.get() <= 0) break
+            // Folia: isValid / location / world.players / spawnParticle 全都要在 marker
+            // 擁有者的執行緒上。retired callback 代表實體已消失,順手把它從表裡拿掉。
+            marker.scheduler.run(plugin, { emitOnOwner(marker, cached, rangeSq) }, { markers.remove(marker) })
         }
+    }
+
+    /** 只能在 [marker] 擁有者的執行緒上呼叫。 */
+    private fun emitOnOwner(marker: Entity, cached: Cached, rangeSq: Double) {
+        if (!marker.isValid) { markers.remove(marker); return }
+        val loc = marker.location
+        if (loc.world?.players?.none { p -> p.location.distanceSquared(loc) <= rangeSq } != false) return
+        if (budgetLeft.decrementAndGet() < 0) return
+        emit(loc, cached)
     }
 
     private fun emit(loc: Location, c: Cached) {

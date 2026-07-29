@@ -7,6 +7,9 @@ main: com.tinyyana.awesomeArmorStandEditor.AwesomeArmorStandEditorPlugin
 api-version: '26.2'
 load: POSTWORLD
 
+# folia/26.2 分支專用(DECISIONS DEC-42)。main 不得有這一行——main 是 Paper 正式服基線。
+folia-supported: true
+
 authors: [ TinyYana ]
 website: https://tinyyana.com
 

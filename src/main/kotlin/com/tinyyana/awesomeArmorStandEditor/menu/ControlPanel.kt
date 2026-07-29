@@ -88,7 +88,8 @@ class ControlPanel(private val plugin: AwesomeArmorStandEditorPlugin) : Listener
             SLOT_GUIDE -> {
                 player.closeInventory()
                 // Defer a tick so the book opens cleanly after the inventory closes.
-                plugin.server.scheduler.runTask(plugin, Runnable { plugin.guideBook.open(player) })
+                // Folia: 只碰這位玩家自己,用他的 EntityScheduler(跨 region 會自動跟著他)
+                player.scheduler.run(plugin, { plugin.guideBook.open(player) }, null)
                 return
             }
             SLOT_PRESETS -> { plugin.gallery.open(player); return }

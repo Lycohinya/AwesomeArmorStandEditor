@@ -67,7 +67,7 @@ class AwesomeArmorStandEditorPlugin : JavaPlugin() {
         animation = AnimationPlayer(this)
         adminTools = AdminTools(this)
         LycoLibHook.init(server.pluginManager)
-        registry.indexLoaded()
+        registry.indexLoaded(this)
         particles.indexLoaded()
         particles.start()
 

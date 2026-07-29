@@ -5,6 +5,7 @@ import org.bukkit.Bukkit
 import org.bukkit.Chunk
 import org.bukkit.entity.Entity
 import org.bukkit.persistence.PersistentDataType
+import org.bukkit.plugin.Plugin
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 
@@ -67,9 +68,16 @@ class EntityRegistry(private val keys: AaseKeys) {
         for (e in chunk.entities) read(e)?.let { byUuid[e.uniqueId] = it }
     }
 
-    /** One-time startup index of entities in currently-loaded chunks. */
-    fun indexLoaded() {
-        for (world in Bukkit.getWorlds()) for (chunk in world.loadedChunks) indexChunk(chunk)
+    /**
+     * One-time startup index of entities in currently-loaded chunks.
+     *
+     * Folia: `chunk.entities` 只能在擁有該 chunk 的 region 執行緒上讀,而 onEnable 跑在
+     * global region。因此每個 chunk 各自跳一次 RegionScheduler,而不是在這條執行緒上直接掃。
+     */
+    fun indexLoaded(plugin: Plugin) {
+        for (world in Bukkit.getWorlds()) for (chunk in world.loadedChunks) {
+            plugin.server.regionScheduler.execute(plugin, world, chunk.x, chunk.z) { indexChunk(chunk) }
+        }
     }
 
     fun taggedInChunk(chunk: Chunk): List<Entity> = chunk.entities.filter { isOurs(it) }
