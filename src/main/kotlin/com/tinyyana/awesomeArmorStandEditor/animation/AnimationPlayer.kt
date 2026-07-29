@@ -22,10 +22,15 @@ class AnimationPlayer(private val plugin: AwesomeArmorStandEditorPlugin) {
     fun isPlaying(playerId: UUID): Boolean = playing.containsKey(playerId)
 
     /**
-     * Folia: 一個 scene 的所有實體都放在 `session.origin` 附近,所以正確的擁有者是
-     * **擁有 origin 的那個 region**,不是編輯者(玩家會走開,實體不會)。origin 還沒定
-     * 就沒有東西可以動,直接拒絕播放,而不是猜一個 context。
-     * 另外 Folia 的 `runAtFixedRate` 初始延遲最小是 1 tick(原本是 0)。
+     * Folia:`RegionScheduler` 的 javadoc 明文寫「It is entirely inappropriate to use the
+     * region scheduler to schedule tasks for entities…you should be using
+     * `Entity#getScheduler()`, as the entity scheduler will "follow" an entity if it is
+     * teleported, whereas the region task scheduler will not」
+     * (`paper-api/.../scheduler/RegionScheduler.java:12-18`)。
+     *
+     * 所以這裡的分工是:**region scheduler 只當時鐘**(它不碰任何實體,只推進影格計數),
+     * 每一格實際套用到實體的動作再各自派給那個實體自己的 [EntityScheduler]。
+     * origin 還沒定就沒有東西可以動,直接拒絕播放,而不是猜一個 context。
      */
     fun play(session: EditSession): Boolean {
         val anim = session.scene.animation ?: return false
@@ -52,39 +57,46 @@ class AnimationPlayer(private val plugin: AwesomeArmorStandEditorPlugin) {
     fun stop(session: EditSession) {
         val task = playing.remove(session.playerId) ?: return
         task.cancel()
-        // Folia: restore 會碰 scene 的實體;stop 可能是從指令(玩家所在 region)呼叫的,
-        // 不保證就是 origin 的擁有者,所以一律跳過去。
-        val origin = session.origin ?: return
-        plugin.server.regionScheduler.execute(plugin, origin) { restore(session) }
+        // restore() 自己會把每個實體的動作派給該實體的 EntityScheduler,所以這裡不需要
+        // 也不應該再包一層 region hop(見 applyFrame 的 Folia 註解)。
+        restore(session)
     }
 
     fun stopSilently(playerId: UUID) {
         playing.remove(playerId)?.cancel()
     }
 
+    /** 只做取樣與派送,實際碰實體的動作跑在該實體自己的執行緒上。 */
     private fun applyFrame(session: EditSession, anim: Animation, t: Int) {
         for (track in anim.tracks) {
             val entity = session.entities[track.elementLocalId] ?: continue
-            if (!entity.isValid) continue
             val kf = InterpolationOps.sample(track.sorted(), t)
-            when {
-                entity is ArmorStand && kf.pose != null -> plugin.placement.applyPose(entity, kf.pose)
-                entity is Display && kf.transform != null -> plugin.placement.applyDisplayTransform(entity, kf.transform, 1)
-            }
-            val off = kf.offset
             val origin = session.origin
-            // Folia: 同步 teleport 只在同 region 成立,teleportAsync 是唯一通用安全的做法
-            if (off != null && origin != null) entity.teleportAsync(origin.clone().add(off.x, off.y, off.z))
+            entity.scheduler.run(plugin, {
+                if (!entity.isValid) return@run
+                when {
+                    entity is ArmorStand && kf.pose != null -> plugin.placement.applyPose(entity, kf.pose)
+                    entity is Display && kf.transform != null -> plugin.placement.applyDisplayTransform(entity, kf.transform, 1)
+                }
+                val off = kf.offset
+                // Folia: CraftEntity.teleport0() 無條件 throw
+                // ("Must use teleportAsync while in region threading",
+                //  paper-server/.../entity/CraftEntity.java:309-313),teleportAsync 是唯一路徑
+                if (off != null && origin != null) entity.teleportAsync(origin.clone().add(off.x, off.y, off.z))
+            }, null)
         }
     }
 
     /** Put entities back to their saved model state after playback. */
     private fun restore(session: EditSession) {
         for ((localId, entity) in session.entities) {
-            if (!entity.isValid) continue
             val element = session.scene.elements.find { it.localId == localId } ?: continue
-            plugin.placement.apply(entity, element)
-            session.origin?.let { entity.teleportAsync(plugin.placement.elementLocation(it, element)) }
+            val origin = session.origin
+            entity.scheduler.run(plugin, {
+                if (!entity.isValid) return@run
+                plugin.placement.apply(entity, element)
+                origin?.let { entity.teleportAsync(plugin.placement.elementLocation(it, element)) }
+            }, null)
         }
     }
 }

@@ -110,22 +110,30 @@ class ParticleService(private val plugin: AwesomeArmorStandEditorPlugin, private
         tick++
         budgetLeft.set(plugin.settings.particleBudget)
         val range = plugin.settings.particleRange.toDouble()
-        val rangeSq = range * range
         for ((marker, cached) in markers) {
             val e = cached.emitter
             if (cached.particle == null || e.rateTicks <= 0 || tick % e.rateTicks != 0L) continue
             if (budgetLeft.get() <= 0) break
-            // Folia: isValid / location / world.players / spawnParticle 全都要在 marker
+            // Folia: isValid / location / getNearbyPlayers / spawnParticle 全都要在 marker
             // 擁有者的執行緒上。retired callback 代表實體已消失,順手把它從表裡拿掉。
-            marker.scheduler.run(plugin, { emitOnOwner(marker, cached, rangeSq) }, { markers.remove(marker) })
+            marker.scheduler.run(plugin, { emitOnOwner(marker, cached, range) }, { markers.remove(marker) })
         }
     }
 
-    /** 只能在 [marker] 擁有者的執行緒上呼叫。 */
-    private fun emitOnOwner(marker: Entity, cached: Cached, rangeSq: Double) {
+    /**
+     * 只能在 [marker] 擁有者的執行緒上呼叫。
+     *
+     * Folia:原本的 `loc.world.players.none { p.location.distanceSquared(loc) }` 會讀到
+     * **別的 region 擁有的玩家**的位置——那是 Folia README「Code running in one region under no
+     * circumstance can be accessing or modifying data that is in another region」明文禁止的
+     * 跨 region 讀取。改用 `World#getNearbyPlayers`,它只會看到目前 region 的實體切片。
+     * 行為差異:剛好落在別的 region、但直線距離仍在 range 內的玩家不會被算進來,
+     * 結果是「少放一顆粒子」——安全方向的差異,不是資料損毀。
+     */
+    private fun emitOnOwner(marker: Entity, cached: Cached, range: Double) {
         if (!marker.isValid) { markers.remove(marker); return }
         val loc = marker.location
-        if (loc.world?.players?.none { p -> p.location.distanceSquared(loc) <= rangeSq } != false) return
+        if (loc.world?.getNearbyPlayers(loc, range)?.isEmpty() != false) return
         if (budgetLeft.decrementAndGet() < 0) return
         emit(loc, cached)
     }
