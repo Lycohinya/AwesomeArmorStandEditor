@@ -65,8 +65,13 @@ Upgrading from 0.x: player-facing text moved out of `messages.yml` / `guide.yml`
 | `/aase anim key <tick>` · `length` · `loop` · `play` · `stop` · `clear` | Keyframe animation |
 | `/aase save` · `/aase load <name>` · `/aase list` · `/aase info` | Save / place / list / scene info |
 | `/aase edit` | Bind to and edit an existing nearby build (no duplicate is created) |
+| `/aase select <id\|next\|prev>` | Switch which element is selected without re-pointing the tool (tab-completes the scene's element IDs) |
+| `/aase delete` | Delete the currently selected element |
+| `/aase guide` | Open the in-game guide book |
+| `/aase close` | Stop any playing animation and close the current edit session |
 | `/aase share` · `/aase import <code> [name]` | Generate a share code / import someone else's |
 | `/aase export command` · `/aase export function` | Export a summon command / mcfunction datapack (**writes server files, admin/builder-only by default**) |
+| `/aase clear <radius>` | Clear *other players'* elements off ground you may build on (never your own) |
 | `/aase admin whois` · `/aase admin remove` | Who placed the nearest element / remove it (**admin-only**) |
 | `/aase admin purge <radius> [player]` · `/aase admin confirm` | Preview a bulk cleanup, then confirm it (**admin-only**) |
 | `/aase reload` | Reload configuration (admin) |
@@ -182,8 +187,13 @@ Share code format: `ShareCode.encode(scene)` = `AASE1:` + URL-safe Base64(gzip(J
 | `/aase anim key <tick>` · `length` · `loop` · `play` · `stop` · `clear` | 關鍵影格動畫 |
 | `/aase save` · `/aase load <名稱>` · `/aase list` · `/aase info` | 存 / 讀 / 清單 / 場景資訊 |
 | `/aase edit` | 綁定並編輯附近既有作品(不產生分身) |
+| `/aase select <編號\|next\|prev>` | 不用工具重新點選,直接切換目前選取的元件(tab 補全會列出場景內的元件編號) |
+| `/aase delete` | 刪除目前選取的元件 |
+| `/aase guide` | 開啟遊戲內操作手冊 |
+| `/aase close` | 停止播放中的動畫並關閉目前的編輯 session |
 | `/aase share` · `/aase import <碼> [名稱]` | 產生分享碼 / 匯入別人的分享碼 |
 | `/aase export command` · `/aase export function` | 匯出 summon 指令 / mcfunction 資料包(**寫入伺服器檔案,預設限管理員/建築師**) |
+| `/aase clear <半徑>` | 清掉**別人**放在你有建築權之處的元件(絕不碰自己的) |
 | `/aase admin whois` · `/aase admin remove` | 查最近元件是誰放的 / 移除它(**限管理員**) |
 | `/aase admin purge <半徑> [玩家]` · `/aase admin confirm` | 預覽批次清除,再確認執行(**限管理員**) |
 | `/aase reload` | 重載設定(管理) |
