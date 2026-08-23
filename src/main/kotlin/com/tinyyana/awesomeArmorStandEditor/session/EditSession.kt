@@ -34,6 +34,9 @@ class EditSession(val playerId: UUID, var scene: Scene) {
 
     var dirty: Boolean = false
 
+    /** Single-slot undo: the state of the last-adjusted element right before its most recent adjust. */
+    var undoSnapshot: UndoSnapshot? = null
+
     /** Live entity view of the scene (element localId -> spawned entity). Valid while chunks loaded. */
     val entities: MutableMap<Int, Entity> = ConcurrentHashMap()
 

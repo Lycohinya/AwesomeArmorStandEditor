@@ -84,6 +84,10 @@ class ControlPanel(private val plugin: AwesomeArmorStandEditorPlugin) : Listener
             SLOT_NUDGE_DOWN -> controller.adjust(player, -1)
             SLOT_NUDGE_UP -> controller.adjust(player, 1)
 
+            SLOT_SELECT_PREV -> controller.selectPrev(player)
+            SLOT_SELECT_NEXT -> controller.selectNext(player)
+            SLOT_UNDO -> controller.undo(player)
+
             SLOT_EQUIP -> { plugin.equipmentMenu.open(player); return }
             SLOT_GUIDE -> {
                 player.closeInventory()
@@ -154,26 +158,54 @@ class ControlPanel(private val plugin: AwesomeArmorStandEditorPlugin) : Listener
         val session = plugin.sessions.get(player.uniqueId)
         val selected = session?.selected()
         val isStand = selected is ArmorStandElement
+        val hasSession = session != null
 
-        inv.setItem(SLOT_INFO, icon(Material.NAME_TAG, "panel.info",
-            "name" to (session?.scene?.name ?: "-"),
-            "sel" to (selected?.let { "#${it.localId}" } ?: "-")))
-        inv.setItem(SLOT_GUIDE, icon(Material.WRITTEN_BOOK, "panel.guide"))
-
+        // --- Row 0: elements + select prev/next + undo ---
         inv.setItem(SLOT_ADD_STAND, icon(Material.ARMOR_STAND, "panel.add-stand"))
         inv.setItem(SLOT_ADD_ITEM, icon(Material.ITEM_FRAME, "panel.add-item"))
         inv.setItem(SLOT_ADD_BLOCK, icon(Material.GRASS_BLOCK, "panel.add-block"))
         inv.setItem(SLOT_ADD_TEXT, icon(Material.OAK_SIGN, "panel.add-text"))
+        inv.setItem(SLOT_EQUIP, icon(Material.CHEST, "panel.equip"))
 
+        val elementCount = session?.scene?.elements?.size ?: 0
+        inv.setItem(SLOT_SELECT_PREV, icon(
+            if (elementCount > 1) Material.ARROW else Material.GRAY_DYE,
+            if (elementCount > 1) "panel.select-prev" else "panel.select-prev-disabled",
+        ))
+        inv.setItem(SLOT_SELECT_NEXT, icon(
+            if (elementCount > 1) Material.ARROW else Material.GRAY_DYE,
+            if (elementCount > 1) "panel.select-next" else "panel.select-next-disabled",
+        ))
+        val hasUndo = controller.hasUndo(player)
+        inv.setItem(SLOT_UNDO, icon(
+            if (hasUndo) Material.HONEYCOMB else Material.GRAY_DYE,
+            if (hasUndo) "panel.undo" else "panel.undo-empty",
+        ))
+
+        // --- Row 1: modes + step/nudge ---
         inv.setItem(SLOT_MODE_MOVE, modeIcon(Material.ENDER_PEARL, "panel.mode-move", session?.mode, EditMode.MOVE))
         inv.setItem(SLOT_MODE_POSE, modeIcon(Material.ARMOR_STAND, "panel.mode-pose", session?.mode, EditMode.POSE))
         inv.setItem(SLOT_MODE_TRANSLATE, modeIcon(Material.PISTON, "panel.mode-translate", session?.mode, EditMode.TRANSLATE))
         inv.setItem(SLOT_MODE_ROTATE, modeIcon(Material.CLOCK, "panel.mode-rotate", session?.mode, EditMode.ROTATE))
         inv.setItem(SLOT_MODE_SCALE, modeIcon(Material.SLIME_BALL, "panel.mode-scale", session?.mode, EditMode.SCALE))
 
+        // Step and nudge buttons show current values in their lore.
+        val stepStr = controller.currentStepFormatted(player) ?: "-"
+        val axisStr = controller.currentAxisFormatted(player) ?: "-"
+        inv.setItem(SLOT_STEP_DOWN, iconWithDynamicLore(Material.RED_DYE, "panel.step-down", "step" to stepStr))
+        inv.setItem(SLOT_STEP_UP, iconWithDynamicLore(Material.LIME_DYE, "panel.step-up", "step" to stepStr))
+        inv.setItem(SLOT_NUDGE_DOWN, iconWithDynamicLore(Material.RED_CONCRETE, "panel.nudge-down", "axis" to axisStr, "step" to stepStr))
+        inv.setItem(SLOT_NUDGE_UP, iconWithDynamicLore(Material.LIME_CONCRETE, "panel.nudge-up", "axis" to axisStr, "step" to stepStr))
+
+        // --- Row 2: body parts + axes ---
         for ((slot, part) in PART_SLOTS) {
-            val on = isStand && session?.part == part
-            inv.setItem(slot, toggleIcon(partMaterial(part), "panel.part-${part.name.lowercase()}", on))
+            if (isStand) {
+                val on = session?.part == part
+                inv.setItem(slot, toggleIcon(partMaterial(part), "panel.part-${part.name.lowercase()}", on))
+            } else {
+                // Display entity selected or nothing selected: grey out body-part slots.
+                inv.setItem(slot, icon(Material.GRAY_STAINED_GLASS_PANE, "panel.part-disabled"))
+            }
         }
 
         for ((axis, slot) in mapOf(Axis.X to SLOT_AXIS_X, Axis.Y to SLOT_AXIS_Y, Axis.Z to SLOT_AXIS_Z)) {
@@ -181,17 +213,20 @@ class ControlPanel(private val plugin: AwesomeArmorStandEditorPlugin) : Listener
             inv.setItem(slot, toggleIcon(axisMaterial(axis, on), "panel.axis-${axis.name.lowercase()}", on))
         }
 
-        inv.setItem(SLOT_STEP_DOWN, icon(Material.RED_DYE, "panel.step-down"))
-        inv.setItem(SLOT_STEP_UP, icon(Material.LIME_DYE, "panel.step-up"))
-        inv.setItem(SLOT_NUDGE_DOWN, icon(Material.RED_CONCRETE, "panel.nudge-down"))
-        inv.setItem(SLOT_NUDGE_UP, icon(Material.LIME_CONCRETE, "panel.nudge-up"))
-
+        // --- Row 3: appearance flags ---
         for ((slot, flag) in FLAG_SLOTS) {
-            val on = isStand && (selected as ArmorStandElement).flagValue(flag)
-            inv.setItem(slot, toggleIcon(if (on) Material.LIME_DYE else Material.GRAY_DYE, "panel.flag-$flag", on))
+            if (isStand) {
+                val on = (selected as ArmorStandElement).flagValue(flag)
+                inv.setItem(slot, toggleIcon(if (on) Material.LIME_DYE else Material.GRAY_DYE, "panel.flag-$flag", on))
+            } else {
+                inv.setItem(slot, icon(Material.GRAY_STAINED_GLASS_PANE, "panel.flag-disabled"))
+            }
         }
-        inv.setItem(SLOT_EQUIP, icon(Material.CHEST, "panel.equip"))
 
+        // --- Row 4: scene management ---
+        inv.setItem(SLOT_INFO, icon(Material.NAME_TAG, "panel.info",
+            "name" to (session?.scene?.name ?: "-"),
+            "sel" to (selected?.let { "#${it.localId}" } ?: "-")))
         inv.setItem(SLOT_PRESETS, icon(Material.PAINTING, "panel.presets"))
         inv.setItem(SLOT_SAVE, icon(Material.WRITABLE_BOOK, "panel.save"))
         // Export writes to the server folder. Players without the permission still see the cell,
@@ -208,6 +243,14 @@ class ControlPanel(private val plugin: AwesomeArmorStandEditorPlugin) : Listener
         // misread destroys the player's work. LAVA_BUCKET is what the delete confirmation
         // dialog below already uses for "確定刪除", so the two now read as the same action.
         inv.setItem(SLOT_DELETE, icon(Material.LAVA_BUCKET, "panel.delete"))
+
+        // --- Footer ---
+        // No-session guidance: when a player opens /aase without having started a scene, place
+        // a hint in the footer area so the empty panel isn't just dead silence.
+        if (!hasSession) {
+            inv.setItem(SLOT_NO_SESSION_HINT, icon(Material.KNOWLEDGE_BOOK, "panel.no-session"))
+        }
+        inv.setItem(SLOT_GUIDE, icon(Material.WRITTEN_BOOK, "panel.guide"))
         inv.setItem(SLOT_CLOSE, icon(Material.BARRIER, "panel.close"))
     }
 
@@ -253,6 +296,17 @@ class ControlPanel(private val plugin: AwesomeArmorStandEditorPlugin) : Listener
         return item
     }
 
+    /** Icon whose lore uses dynamic placeholders (step, axis) that change per-open. */
+    @Suppress("DEPRECATION")
+    private fun iconWithDynamicLore(material: Material, nameKey: String, vararg ph: Pair<String, String>): ItemStack {
+        val item = ItemStack(material)
+        val meta = item.itemMeta ?: return item
+        meta.setDisplayName(texts.legacy(nameKey, *ph))
+        texts.raw("$nameKey-lore")?.let { meta.lore = listOf(texts.legacy("$nameKey-lore", *ph)) }
+        item.itemMeta = meta
+        return item
+    }
+
     @Suppress("DEPRECATION")
     private fun toggleIcon(material: Material, nameKey: String, on: Boolean): ItemStack {
         val item = ItemStack(material)
@@ -289,13 +343,16 @@ class ControlPanel(private val plugin: AwesomeArmorStandEditorPlugin) : Listener
 
         private fun row(index: Int, count: Int): List<Int> = (0 until count).map { index * COLUMNS + it }
 
-        /** Row 0 — elements: the four "add" buttons plus the equipment sub-menu. */
-        private val ELEMENT = row(0, 5)
+        /** Row 0 — elements: the four "add" buttons, equipment sub-menu, then select prev/next + undo. */
+        private val ELEMENT = row(0, 8)
         val SLOT_ADD_STAND = ELEMENT[0]
         val SLOT_ADD_ITEM = ELEMENT[1]
         val SLOT_ADD_BLOCK = ELEMENT[2]
         val SLOT_ADD_TEXT = ELEMENT[3]
         val SLOT_EQUIP = ELEMENT[4]
+        val SLOT_SELECT_PREV = ELEMENT[5]
+        val SLOT_SELECT_NEXT = ELEMENT[6]
+        val SLOT_UNDO = ELEMENT[7]
 
         /** Row 1 — how to adjust: the five edit modes, then how far one click moves. */
         private val ADJUST = row(1, 9)
@@ -341,8 +398,10 @@ class ControlPanel(private val plugin: AwesomeArmorStandEditorPlugin) : Listener
         val SLOT_EXPORT = SCENE[3]
         val SLOT_DELETE = SCENE[4]
 
-        /** Footer: `base = (rows - 1) * 9`, `?` at `base + 7` and `✕` at `base + 8`. */
+        /** Footer: `base = (rows - 1) * 9`, then `?` at `base + 7` and `✕` at `base + 8`. */
         private const val PANEL_FOOTER_BASE = (PANEL_ROWS - 1) * COLUMNS
+        /** No-session hint goes at footer base + 0 (the left edge) when there is no active session. */
+        const val SLOT_NO_SESSION_HINT = PANEL_FOOTER_BASE
         const val SLOT_GUIDE = PANEL_FOOTER_BASE + 7
         const val SLOT_CLOSE = PANEL_FOOTER_BASE + 8
 
@@ -356,7 +415,8 @@ class ControlPanel(private val plugin: AwesomeArmorStandEditorPlugin) : Listener
 
         /** Every slot [populate] can write to, derived from the constants above so a test can check them. */
         val PANEL_SLOTS: List<Int> =
-            ELEMENT + ADJUST + TARGET + FLAG_SLOTS.keys.sorted() + SCENE + listOf(SLOT_GUIDE, SLOT_CLOSE)
+            ELEMENT + ADJUST + TARGET + FLAG_SLOTS.keys.sorted() + SCENE +
+                listOf(SLOT_NO_SESSION_HINT, SLOT_GUIDE, SLOT_CLOSE)
 
         val CONFIRM_SLOTS: List<Int> =
             listOf(CONFIRM_SUMMARY, CONFIRM_CANCEL, CONFIRM_DELETE, CONFIRM_BACK, CONFIRM_CLOSE)

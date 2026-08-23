@@ -18,11 +18,13 @@ import com.tinyyana.awesomeArmorStandEditor.model.Scene
 import com.tinyyana.awesomeArmorStandEditor.model.Vec3
 import com.tinyyana.awesomeArmorStandEditor.session.EditMode
 import com.tinyyana.awesomeArmorStandEditor.session.EditSession
+import com.tinyyana.awesomeArmorStandEditor.session.UndoSnapshot
 import com.tinyyana.awesomeArmorStandEditor.store.ItemCodec
 import com.tinyyana.awesomeArmorStandEditor.store.ShareCode
 import net.kyori.adventure.text.event.ClickEvent
 import org.bukkit.Location
 import org.bukkit.Particle
+import org.bukkit.Sound
 import org.bukkit.configuration.file.YamlConfiguration
 import org.bukkit.entity.Entity
 import org.bukkit.entity.Player
@@ -117,6 +119,9 @@ class EditorController(private val plugin: AwesomeArmorStandEditorPlugin) {
         val entity = session.entities[element.localId] ?: return
         val step = currentStep(session) * direction
 
+        // Snapshot before mutating so a single undo can restore this exact state.
+        session.undoSnapshot = snapshotOf(element)
+
         when {
             element is ArmorStandElement && session.mode == EditMode.POSE -> {
                 element.pose = PoseOps.setPart(element.pose, session.part, PoseOps.nudge(PoseOps.getPart(element.pose, session.part), session.axis, step))
@@ -152,6 +157,7 @@ class EditorController(private val plugin: AwesomeArmorStandEditorPlugin) {
             else -> return
         }
         session.dirty = true
+        sound(player, Sound.UI_BUTTON_CLICK, 0.4f, 1.0f)
         readout(player, session)
     }
 
@@ -172,11 +178,13 @@ class EditorController(private val plugin: AwesomeArmorStandEditorPlugin) {
 
     fun cycleAxis(player: Player, dir: Int) = withSession(player) { s ->
         s.axis = Axis.entries[(s.axis.ordinal + dir).mod(Axis.entries.size)]
+        sound(player, Sound.BLOCK_NOTE_BLOCK_HAT, 0.4f, 1.2f)
         readout(player, s)
     }
 
     fun cyclePart(player: Player, dir: Int) = withSession(player) { s ->
         s.part = BodyPart.entries[(s.part.ordinal + dir).mod(BodyPart.entries.size)]
+        sound(player, Sound.BLOCK_NOTE_BLOCK_HAT, 0.4f, 1.0f)
         readout(player, s)
     }
 
@@ -186,6 +194,7 @@ class EditorController(private val plugin: AwesomeArmorStandEditorPlugin) {
             StepFamily.TRANSLATE -> s.transStepIndex += dir
             StepFamily.SCALE -> s.scaleStepIndex += dir
         }
+        sound(player, Sound.BLOCK_NOTE_BLOCK_HAT, 0.4f, 0.8f)
         readout(player, s)
     }
 
@@ -194,6 +203,7 @@ class EditorController(private val plugin: AwesomeArmorStandEditorPlugin) {
         val modes = if (element is ArmorStandElement) armorStandModes else displayModes
         val idx = modes.indexOf(s.mode).coerceAtLeast(0)
         s.mode = modes[(idx + dir).mod(modes.size)]
+        sound(player, Sound.BLOCK_NOTE_BLOCK_HAT, 0.4f, 1.4f)
         readout(player, s)
     }
 
@@ -815,4 +825,90 @@ class EditorController(private val plugin: AwesomeArmorStandEditorPlugin) {
     }
 
     private fun noSession(player: Player) = plugin.texts.send(player, "session.none")
+
+    // --- undo ---
+
+    /** Restore the last-adjusted element to its pre-adjust state. One slot only: consumed on use. */
+    fun undo(player: Player) = withSession(player) { s ->
+        val snap = s.undoSnapshot ?: return@withSession run {
+            sound(player, Sound.ENTITY_VILLAGER_NO, 0.5f, 1.0f)
+            plugin.texts.send(player, "undo.none")
+        }
+        s.undoSnapshot = null
+        val element = s.scene.elements.find { it.localId == snap.localId }
+            ?: return@withSession plugin.texts.send(player, "undo.none")
+        when (element) {
+            is ArmorStandElement -> {
+                snap.pose?.let { element.pose = it }
+                element.offset = snap.offset
+            }
+            is DisplayElement -> {
+                snap.transform?.let { element.transform = it }
+                element.offset = snap.offset
+            }
+        }
+        val entity = s.entities[element.localId]
+        if (entity != null) {
+            plugin.placement.apply(entity, element)
+            s.origin?.let { entity.teleport(plugin.placement.elementLocation(it, element)) }
+        }
+        s.dirty = true
+        sound(player, Sound.BLOCK_NOTE_BLOCK_BELL, 0.5f, 1.2f)
+        plugin.texts.send(player, "undo.ok")
+        readout(player, s)
+    }
+
+    fun hasUndo(player: Player): Boolean =
+        plugin.sessions.get(player.uniqueId)?.undoSnapshot != null
+
+    private fun snapshotOf(element: Element): UndoSnapshot = when (element) {
+        is ArmorStandElement -> UndoSnapshot(element.localId, element.pose, null, element.offset)
+        is DisplayElement -> UndoSnapshot(element.localId, null, element.transform, element.offset)
+    }
+
+    // --- select next/prev (for GUI and tool) ---
+
+    fun selectNext(player: Player) = withSession(player) { s ->
+        val ids = s.scene.elements.map { it.localId }
+        if (ids.isEmpty()) return@withSession plugin.texts.send(player, "select.none")
+        val curIdx = ids.indexOf(s.selectedLocalId)
+        val target = ids[(curIdx + 1).mod(ids.size)]
+        val element = s.scene.elements.first { it.localId == target }
+        s.selectedLocalId = target
+        s.mode = if (element is ArmorStandElement) EditMode.POSE else EditMode.TRANSLATE
+        sound(player, Sound.UI_BUTTON_CLICK, 0.4f, 1.2f)
+        plugin.texts.send(player, "select.done", "id" to target.toString(), "type" to typeLabel(element))
+        readout(player, s)
+    }
+
+    fun selectPrev(player: Player) = withSession(player) { s ->
+        val ids = s.scene.elements.map { it.localId }
+        if (ids.isEmpty()) return@withSession plugin.texts.send(player, "select.none")
+        val curIdx = ids.indexOf(s.selectedLocalId)
+        val target = ids[(curIdx - 1).mod(ids.size)]
+        val element = s.scene.elements.first { it.localId == target }
+        s.selectedLocalId = target
+        s.mode = if (element is ArmorStandElement) EditMode.POSE else EditMode.TRANSLATE
+        sound(player, Sound.UI_BUTTON_CLICK, 0.4f, 0.8f)
+        plugin.texts.send(player, "select.done", "id" to target.toString(), "type" to typeLabel(element))
+        readout(player, s)
+    }
+
+    // --- GUI state queries (used by ControlPanel to populate dynamic lore) ---
+
+    fun currentStepFormatted(player: Player): String? {
+        val s = plugin.sessions.get(player.uniqueId) ?: return null
+        return formatStep(s)
+    }
+
+    fun currentAxisFormatted(player: Player): String? {
+        val s = plugin.sessions.get(player.uniqueId) ?: return null
+        return s.axis.name
+    }
+
+    // --- sound helper ---
+
+    private fun sound(player: Player, sound: Sound, volume: Float, pitch: Float) {
+        if (plugin.settings.soundEnabled) player.playSound(player.location, sound, volume, pitch)
+    }
 }

@@ -20,6 +20,7 @@ data class EditorSettings(
     val particleBudget: Int,
     val particleRange: Int,
     val maxPurgeRadius: Int,
+    val soundEnabled: Boolean,
 ) {
     companion object {
         fun load(config: FileConfiguration): EditorSettings {
@@ -44,6 +45,7 @@ data class EditorSettings(
                 particleBudget = config.getInt("particles.budget-per-tick", 200),
                 particleRange = config.getInt("particles.render-range", 32),
                 maxPurgeRadius = config.getInt("admin.max-purge-radius", 64),
+                soundEnabled = config.getBoolean("tool.sound", true),
             )
         }
     }

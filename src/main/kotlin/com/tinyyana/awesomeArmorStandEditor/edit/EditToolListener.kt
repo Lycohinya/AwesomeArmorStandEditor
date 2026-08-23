@@ -4,6 +4,7 @@ import com.tinyyana.awesomeArmorStandEditor.AwesomeArmorStandEditorPlugin
 import org.bukkit.event.EventHandler
 import org.bukkit.event.Listener
 import org.bukkit.event.block.Action
+import org.bukkit.event.player.PlayerDropItemEvent
 import org.bukkit.event.player.PlayerInteractAtEntityEvent
 import org.bukkit.event.player.PlayerInteractEvent
 import org.bukkit.event.player.PlayerItemHeldEvent
@@ -67,5 +68,19 @@ class EditToolListener(private val plugin: AwesomeArmorStandEditorPlugin) : List
             diff == -8 -> 1
             else -> Integer.signum(diff)
         }
+    }
+
+    /**
+     * Q (drop) while holding the editor tool = undo last adjust. The item never leaves the
+     * inventory. This reuses a key players already know (Q = drop) as an undo shortcut,
+     * discovered via the tool lore and guide book.
+     */
+    @EventHandler
+    fun onDrop(event: PlayerDropItemEvent) {
+        if (!ToolItem.isTool(keys, event.itemDrop.itemStack)) return
+        val player = event.player
+        if (plugin.sessions.get(player.uniqueId) == null) return
+        event.isCancelled = true
+        controller.undo(player)
     }
 }

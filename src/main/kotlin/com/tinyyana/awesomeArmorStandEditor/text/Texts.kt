@@ -131,14 +131,28 @@ class Texts private constructor(private val audiences: BukkitAudiences) {
             }
         }
 
-        /** User file wins key by key, jar copy fills the gaps — so a partial translation still renders. */
+        /** User file wins key by key, jar copy fills the gaps and upgrades old static strings to new placeholder templates. */
         private fun readLang(plugin: JavaPlugin, code: String): YamlConfiguration {
             val path = "lang/$code.yml"
-            val user = YamlConfiguration.loadConfiguration(File(plugin.dataFolder, path))
+            val file = File(plugin.dataFolder, path)
+            val user = YamlConfiguration.loadConfiguration(file)
             plugin.getResource(path)?.use { stream ->
                 val defaults = YamlConfiguration.loadConfiguration(InputStreamReader(stream, StandardCharsets.UTF_8))
+                for (key in defaults.getKeys(true)) {
+                    if (defaults.isString(key)) {
+                        if (!user.contains(key) || !user.isString(key)) {
+                            user.set(key, defaults.getString(key))
+                        } else {
+                            val defVal = defaults.getString(key)!!
+                            val userVal = user.getString(key)!!
+                            // If default has placeholders that old user string completely lacks, upgrade it
+                            if (defVal.contains("{") && !userVal.contains("{")) {
+                                user.set(key, defVal)
+                            }
+                        }
+                    }
+                }
                 user.setDefaults(defaults)
-                user.options().copyDefaults(true)
             }
             return user
         }

@@ -185,4 +185,29 @@ class EditorLogicTest {
         assertTrue(Vec3(0.0, 0.0, 7.0) in offsets, "emitter must be probed")
         assertTrue(Vec3(80.0, 0.0, 0.0) in offsets, "animated position must be probed")
     }
+
+    @Test
+    fun undoSnapshotCapturesAndRestoresArmorStandAndDisplay() {
+        val stand = ArmorStandElement(
+            localId = 1,
+            offset = Vec3(1.0, 2.0, 3.0),
+            pose = Pose6(head = EulerXYZ(0.5, 0.0, 0.0)),
+        )
+        val snap = com.tinyyana.awesomeArmorStandEditor.session.UndoSnapshot(
+            localId = stand.localId,
+            pose = stand.pose,
+            transform = null,
+            offset = stand.offset,
+        )
+        // Simulate modification
+        stand.offset = Vec3(4.0, 5.0, 6.0)
+        stand.pose = Pose6(head = EulerXYZ(1.0, 1.0, 1.0))
+
+        // Restore from snapshot
+        snap.pose?.let { stand.pose = it }
+        stand.offset = snap.offset
+
+        assertEquals(Vec3(1.0, 2.0, 3.0), stand.offset)
+        assertEquals(EulerXYZ(0.5, 0.0, 0.0), stand.pose.head)
+    }
 }

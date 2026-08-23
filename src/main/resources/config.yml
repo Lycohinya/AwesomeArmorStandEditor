@@ -8,6 +8,8 @@ language: auto
 tool:
   # 編輯工具的物品材質(Bukkit Material 名稱)
   material: BLAZE_ROD
+  # 拿工具操作時是否有音效反饋
+  sound: true
   # 用 /aase edit 綁定既有作品時,搜尋附近元件的範圍(格)
   select-range: 6
 

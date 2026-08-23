@@ -120,6 +120,7 @@ class AaseCommand(private val plugin: AwesomeArmorStandEditorPlugin) : TabExecut
             "mirror" -> require(sender, "aase.use") { controller.mirrorPose(sender) }
             "close" -> require(sender, "aase.use") { controller.close(sender) }
             // Not admin-gated: it can only clear other people's elements off ground you may build on.
+            "undo" -> require(sender, "aase.use") { controller.undo(sender) }
             "clear" -> require(sender, "aase.clear") { plugin.adminTools.clearIntruders(sender, args.drop(1)) }
             // Moderation: whois/remove/purge act on OTHER people's art, so they all sit behind aase.admin.
             "admin" -> require(sender, "aase.admin") {
@@ -156,7 +157,7 @@ class AaseCommand(private val plugin: AwesomeArmorStandEditorPlugin) : TabExecut
     }
 
     private fun giveTool(player: Player) {
-        val lore = listOf("tool.lore1", "tool.lore2", "tool.lore3", "tool.lore4")
+        val lore = listOf("tool.lore1", "tool.lore2", "tool.lore3", "tool.lore4", "tool.lore5")
             .filter { texts.raw(it) != null }
             .map { texts.legacy(it) }
         val tool = ToolItem.create(plugin.keys, plugin.settings.toolMaterial, texts.legacy("tool.name"), lore)
@@ -195,7 +196,7 @@ class AaseCommand(private val plugin: AwesomeArmorStandEditorPlugin) : TabExecut
     private val subcommands = listOf(
         "guide", "tool", "new", "presets", "pose", "fx", "mirror", "addstand", "adddisplay", "setblock", "settext",
         "setitem", "setname", "setequip", "equip", "flag", "particle", "anim", "save", "load", "edit", "select", "list", "info",
-        "delete", "export", "share", "import", "close", "clear", "admin", "reload",
+        "undo", "delete", "export", "share", "import", "close", "clear", "admin", "reload",
     )
 
     /** Hidden from tab-complete for players who can't use them. */

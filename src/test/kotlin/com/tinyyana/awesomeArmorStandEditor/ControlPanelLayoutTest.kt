@@ -42,14 +42,18 @@ class ControlPanelLayoutTest {
     fun `the footer row holds navigation only`() {
         val base = (ControlPanel.PANEL_ROWS - 1) * ControlPanel.COLUMNS
         val inFooter = ControlPanel.PANEL_SLOTS.filter { it >= base }
-        assertEquals(listOf(base + 7, base + 8), inFooter.sorted(), "only ? and ✕ belong in the footer row")
+        assertEquals(listOf(base, base + 7, base + 8), inFooter.sorted(), "only status at 0, and ? and ✕ belong in the footer row")
     }
 
     @Test
     fun `groups are contiguous rows starting at column zero`() {
         // One row is one group: every group's cells sit in a single row, packed from column 0.
         for (group in listOf(
-            listOf(ControlPanel.SLOT_ADD_STAND, ControlPanel.SLOT_ADD_ITEM, ControlPanel.SLOT_ADD_BLOCK, ControlPanel.SLOT_ADD_TEXT, ControlPanel.SLOT_EQUIP),
+            listOf(
+                ControlPanel.SLOT_ADD_STAND, ControlPanel.SLOT_ADD_ITEM, ControlPanel.SLOT_ADD_BLOCK,
+                ControlPanel.SLOT_ADD_TEXT, ControlPanel.SLOT_EQUIP, ControlPanel.SLOT_SELECT_PREV,
+                ControlPanel.SLOT_SELECT_NEXT, ControlPanel.SLOT_UNDO,
+            ),
             listOf(
                 ControlPanel.SLOT_MODE_MOVE, ControlPanel.SLOT_MODE_POSE, ControlPanel.SLOT_MODE_TRANSLATE,
                 ControlPanel.SLOT_MODE_ROTATE, ControlPanel.SLOT_MODE_SCALE, ControlPanel.SLOT_STEP_DOWN,
