@@ -1,0 +1,53 @@
+{
+  "schemaVersion": 3,
+  "id": "5e4f3a2b-3c4d-4e5f-a0b1-c2d3e4f5a603",
+  "owner": "00000000-0000-0000-0000-000000000042",
+  "name": "Legacy shapes",
+  "lastAnchor": { "world": "world", "x": 100.5, "y": 64, "z": -20.5 },
+  "elements": [
+    {
+      "type": "armor_stand",
+      "localId": 1,
+      "offset": [0, 0, 0],
+      "yaw": 30,
+      "pose": {
+        "head": [0.5, 0, 0],
+        "body": [0, 0.1, 0],
+        "leftArm": [-0.3, 0, -0.2],
+        "rightArm": [-1.2, 0.4, 0.3],
+        "leftLeg": [0, 0, -0.05],
+        "rightLeg": [0, 0, 0.05]
+      },
+      "flags": { "small": false, "invisible": false, "noBasePlate": true, "noGravity": true, "arms": true, "marker": false, "glowing": false }
+    },
+    {
+      "type": "display",
+      "localId": 2,
+      "offset": [0, 1, 1],
+      "yaw": 0,
+      "kind": "BLOCK",
+      "transform": {
+        "translation": [-0.5, 0, -0.5],
+        "leftRotation": [0, 0, 0, 1],
+        "scale": [1, 1, 1],
+        "rightRotation": [0, 0.17364817766693033, 0, 0.984807753012208]
+      },
+      "payload": "minecraft:stone_bricks",
+      "billboard": "FIXED",
+      "viewRange": 1
+    },
+    {
+      "type": "display",
+      "localId": 3,
+      "offset": [0, 2, 1],
+      "kind": "TEXT",
+      "transform": {
+        "translation": [0, 0, 0],
+        "leftRotation": [0, 0, 0, 1],
+        "scale": [2, 2, 2],
+        "rightRotation": [0, 0, 0, 1]
+      },
+      "payload": "<red>Legacy §lpayload</red> text"
+    }
+  ]
+}

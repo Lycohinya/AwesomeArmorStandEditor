@@ -1,0 +1,59 @@
+{
+  "schemaVersion": 3,
+  "id": "7a6b5c4d-4e5f-4a6b-b7c8-d9e0f1a2b304",
+  "name": "Waving lantern",
+  "elements": [
+    {
+      "type": "armor_stand",
+      "localId": 1,
+      "offset": [0, 0, 0],
+      "poseDeg": { "rightArm": [-100, 0, 20] },
+      "equipment": { "mainHand": { "id": "minecraft:lantern" } }
+    },
+    {
+      "type": "display",
+      "localId": 2,
+      "offset": [1, 1, 0],
+      "kind": "ITEM",
+      "item": { "id": "minecraft:amethyst_shard" },
+      "transform": { "scale": [0.75, 0.75, 0.75] }
+    }
+  ],
+  "emitters": [
+    { "id": 1, "particle": "END_ROD", "offset": [1, 1.5, 0], "count": 3, "spread": [0.1, 0.1, 0.1], "speed": 0.01, "rateTicks": 20 },
+    { "id": 2, "particle": "DUST", "dustColor": 16758741 }
+  ],
+  "animation": {
+    "lengthTicks": 10,
+    "loop": true,
+    "tracks": [
+      {
+        "elementLocalId": 1,
+        "keyframes": [
+          {
+            "tick": 0,
+            "pose": { "head": [0, 0, 0], "body": [0, 0, 0], "leftArm": [0, 0, 0], "rightArm": [-1.6, 0, 0.3], "leftLeg": [0, 0, 0], "rightLeg": [0, 0, 0] }
+          },
+          {
+            "tick": 10,
+            "pose": { "head": [0, 0.4, 0], "body": [0, 0, 0], "leftArm": [0, 0, 0], "rightArm": [-2.4, 0, -0.3], "leftLeg": [0, 0, 0], "rightLeg": [0, 0, 0] }
+          }
+        ]
+      },
+      {
+        "elementLocalId": 2,
+        "keyframes": [
+          {
+            "tick": 0,
+            "transform": { "translation": [0, 0, 0], "leftRotation": [0, 0, 0, 1], "scale": [0.75, 0.75, 0.75], "rightRotation": [0, 0, 0, 1] }
+          },
+          {
+            "tick": 10,
+            "transform": { "translation": [0, 0.5, 0], "leftRotation": [0, 0.7071067811865476, 0, 0.7071067811865476], "scale": [1, 1, 1], "rightRotation": [0, 0, 0, 1] },
+            "offset": [1, 1.25, 0]
+          }
+        ]
+      }
+    ]
+  }
+}

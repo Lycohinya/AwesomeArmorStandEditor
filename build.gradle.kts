@@ -54,9 +54,19 @@ tasks {
 
     test {
         useJUnitPlatform()
+        // Golden fixtures: `GOLDEN_UPDATE=1 ./gradlew test` or `./gradlew test -Dgolden.update=true`
+        // rewrites the expected files instead of comparing (see ContractFixturesTest).
+        val goldenUpdate = System.getProperty("golden.update") == "true" || System.getenv("GOLDEN_UPDATE") == "1"
+        systemProperty("golden.update", goldenUpdate.toString())
+        inputs.property("goldenUpdate", goldenUpdate)
+        if (goldenUpdate) outputs.upToDateWhen { false }
+        inputs.dir("schema")
     }
 
     processResources {
+        // The scene schema's source of truth is schema/scene.v3.schema.json (repo root, shared with
+        // AASE Studio); the jar carries a copy for the validator.
+        from(rootProject.file("schema")) { include("scene.v3.schema.json") }
         val props = mapOf("version" to version.toString(), "description" to project.description.toString())
         // Without this the task is UP-TO-DATE across a version bump and ships a stale plugin.yml,
         // so the jar filename and the version the server logs disagree.

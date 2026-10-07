@@ -1,0 +1,57 @@
+{
+  "schemaVersion": 3,
+  "id": "3c2d1e0f-2b3a-4d5c-9e8f-7a6b5c4d3e02",
+  "name": "Shop sign",
+  "elements": [
+    {
+      "type": "display",
+      "localId": 1,
+      "offset": [0, 1.5, 0],
+      "yaw": 0,
+      "kind": "ITEM",
+      "item": { "id": "minecraft:emerald", "count": 3 },
+      "transform": {
+        "translation": [0, 0.25, 0],
+        "scale": [0.5, 0.5, 0.5],
+        "leftRotation": [0, 0.3826834323650898, 0, 0.9238795325112867]
+      },
+      "billboard": "VERTICAL",
+      "glowColor": -16711936
+    },
+    {
+      "type": "display",
+      "localId": 2,
+      "offset": [1, 0, 0],
+      "yaw": 180,
+      "kind": "BLOCK",
+      "block": "minecraft:oak_stairs[facing=east,half=bottom]",
+      "transform": {
+        "scale": [1, 0.5, 1],
+        "leftRotation": [0.7071067811865476, 0, 0, 0.7071067811865476],
+        "rightRotation": [0, 0, 0.25881904510252074, 0.9659258262890683]
+      },
+      "brightnessBlock": 15,
+      "brightnessSky": 7,
+      "viewRange": 0.5
+    },
+    {
+      "type": "display",
+      "localId": 3,
+      "offset": [0, 2.25, 0],
+      "kind": "TEXT",
+      "text": "<gold><bold>Fresh \"Bread\"</bold></gold>\n<gray>2 emeralds \\ loaf</gray>\r\nOpen\tdaily",
+      "billboard": "CENTER",
+      "brightnessBlock": 15,
+      "brightnessSky": 15,
+      "transform": { "translation": [0, 0.1, 0], "rotationDeg": [0, 90, 0] }
+    },
+    {
+      "type": "display",
+      "localId": 4,
+      "offset": [-1, 0, 0.5],
+      "kind": "BLOCK",
+      "block": "minecraft:lantern",
+      "billboard": "FIXED"
+    }
+  ]
+}

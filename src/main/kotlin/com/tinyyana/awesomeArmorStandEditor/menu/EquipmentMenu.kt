@@ -1,7 +1,8 @@
 package com.tinyyana.awesomeArmorStandEditor.menu
 
 import com.tinyyana.awesomeArmorStandEditor.AwesomeArmorStandEditorPlugin
-import com.tinyyana.awesomeArmorStandEditor.store.ItemCodec
+import com.tinyyana.awesomeArmorStandEditor.model.ItemRef
+import com.tinyyana.awesomeArmorStandEditor.store.ItemResolver
 import org.bukkit.Bukkit
 import org.bukkit.Material
 import org.bukkit.entity.Player
@@ -82,17 +83,16 @@ class EquipmentMenu(private val plugin: AwesomeArmorStandEditorPlugin) : Listene
         val snapshot = controller.equipmentSnapshot(player) ?: return
         inv.setItem(SLOT_INFO, icon(Material.ARMOR_STAND, texts.legacy("equip-menu.info"), listOf(texts.legacy("equip-menu.info-lore-1"), texts.legacy("equip-menu.info-lore-2"))))
         for ((slot, key) in SLOTS) {
-            val encoded = snapshot[key]
-            inv.setItem(slot, slotItem(key, encoded))
+            inv.setItem(slot, slotItem(key, snapshot[key]))
         }
         inv.setItem(SLOT_BACK, icon(Material.ARROW, texts.legacy("equip-menu.back")))
     }
 
     /** Show the equipped item (with a "click to change/remove" hint) or a labelled empty placeholder. */
     @Suppress("DEPRECATION")
-    private fun slotItem(key: String, encoded: String?): ItemStack {
+    private fun slotItem(key: String, ref: ItemRef?): ItemStack {
         val label = texts.legacy("equip-menu.$key")
-        val decoded = encoded?.let { ItemCodec.decode(it) }
+        val decoded = ref?.let { ItemResolver.resolve(it) }
         if (decoded != null && !decoded.type.isAir) {
             val item = decoded.clone()
             val meta = item.itemMeta

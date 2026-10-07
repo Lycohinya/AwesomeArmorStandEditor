@@ -29,8 +29,8 @@
 骨架一次到位(含動畫欄位),功能分期長出來。序列化用 **Gson(Paper 執行期已內建,`compileOnly` 對編譯,執行期由伺服器提供,不 shade)**;`SceneCodec` 手寫 `toJson/fromJson`(顯式處理 `Element` 多型的 `type` 判別欄位與 `schemaVersion` 演進),不用反射對映——避免 Gson 以 Unsafe 繞過建構子讓 Kotlin 非空欄位變 null。
 
 ```
-Scene                         # 存檔單位,一個 .json
-  schemaVersion: Int          # 前向相容
+Scene                         # 存檔單位,一個 .json(1.3.0 起預設寫 v3,v2 照讀)
+  schemaVersion: Int          # 3;讀入時 2 / 缺省走舊格式讀取器
   id: String (uuid)
   owner: UUID
   name: String
@@ -41,13 +41,13 @@ Scene                         # 存檔單位,一個 .json
 Element (sealed)              # 兩種一等公民,皆帶 localId
   ArmorStandElement
     pose: Pose6 (head/body/leftArm/rightArm/leftLeg/rightLeg = 各 xyz 弧度)
-    equipment: 6 格 ItemStack(序列化成 Bukkit 的 base64 或 NBT 字串)
+    equipment: 6 格 ItemRef?(見下)
     flags: {small, invisible, noBasePlate, noGravity, arms, marker, glowing}
     offset: Vec3(相對錨點) + yaw
   DisplayElement
     kind: ITEM | BLOCK | TEXT
     transform: Transform(translation, leftRotation(quat), scale, rightRotation(quat))
-    payload: item(base64) | blockData(String) | text(MiniMessage)
+    item: ItemRef?(ITEM)/ payload: blockData(BLOCK)| MiniMessage(TEXT)
     billboard, brightness?, glow?, viewRange
     offset: Vec3 + yaw
 
@@ -58,6 +58,11 @@ Animation (P3)
     keyframes: List<Keyframe>  # tick → 目標 pose/transform + 插值型別(linear/step/ease)
 ```
 
+**Scene JSON v3(1.3.0)**:真本是 repo 根目錄的 `schema/scene.v3.schema.json`(JSON Schema 2020-12,全面 `additionalProperties:false`),jar 內附一份。和 v2 的差別:盔甲座姿勢寫 `poseDeg`(度,同 `/summon` 的 Pose,缺的部位 = 0)、Display 旋轉可寫 `rotationDeg`(歐拉角,qx·qy·qz,JOML `rotationXYZ`)、物品寫 **ItemRef** `{id, count, components, bukkit}`、Display 內容分成 `item` / `block` / `text`。舊形狀(`pose` 弧度、四元數、`payload`、base64 物品字串)在 v3 仍合法,與新形狀互斥。
+- **ItemRef**:`id`(`minecraft:diamond_sword`)、`count`(1..99)、`components`(與 `/give` 相同的 `[k=v,...]`,`ItemMeta#getAsComponentString()` 正規化只留中括號部分)、`bukkit`(插件寫的精確 base64)。插件執行期解析順序:`bukkit` → `ItemFactory#createItemStack(id + components)`;都不行就那格留空並告訴玩家。v2 的 base64 讀成 `ItemRef(id=null, bukkit=…)`,寫 v3 時仍是字串。
+- **讀**:`SceneCodec.decode` — v2 寬鬆照舊;v3 先 `SceneValidator`(解讀內附 schema + 語意檢查:localId 不重複、Display 有對應內容、動畫軌指向存在的元件、發射器 id 不重複),錯誤是 `{pointer(RFC 6901), message}`,依文件順序深度優先排序、取第一個,與網站 `validate.ts` 一致(負向 golden 樣本兩邊都跑)。通過才正規化:度 → 弧度、`rotationDeg` → 四元數、補預設。
+- **寫**:預設 v3(`poseDeg` 四捨五入到 4 位小數、四元數原樣、ItemRef);`store.write-schema: 2` 寫舊格式(沒有 `bukkit` 的 ItemRef 在執行期轉成物品再編碼,轉不出來就省略該格並 log)。寫出的 v3 自己再驗一次,無法表達(例如超過 200 個元件)就退回 v2,不丟資料。
+
 執行期實體不存 NBT 大狀態;實體只掛 PDC 幾個小 key:`owner`、`scene`(sceneId)、`local`(elementLocalId),1.2.0 起加 `placement`(放置 ID,字串 UUID)與 `sceneName`(放置當時的作品名)。粒子發射器 marker 另有 `emitter`。其餘狀態以 Scene JSON 為準。
 
 **一次放置 = 一個 placement**:`load` / `import` / `new` 每放一次就產生新的 `placement` ID,蓋在該次生成的所有元件與發射器上,session 也持有同一個 ID(`EditSession.placementId`)。`edit` / `select` / `remove` 一律以 placement 為界,所以同一份存檔的兩份複本互不牽連。1.1.0 以前的實體沒有 `placement`(`sceneName` 同),第一次 `/aase edit` 時以「擁有者 + 作品 + 位置」分組後補蓋(`LegacyGrouping`),補完即同新實體。`placement` / `sceneName` 只用於分組與收回,不是真本——存檔才是。
@@ -66,7 +71,10 @@ Animation (P3)
 
 - 路徑:`plugins/AwesomeArmorStandEditor/scenes/<owner-uuid>/<sceneId>.json`。
 - **不上資料庫**(開源友善、可攜)。存檔就是可讀 JSON。
-- 分享(P1 基本、P4 打磨):匯出 = 複製整份 JSON 檔;之後加 base64+gzip 分享碼與匯入。
+- 分享:`/aase share` 上傳到 AASE Studio 取短碼(`share.upload`),失敗或關閉時給 `AASE1:` 分享碼文字(gzip + URL-safe Base64 的 v3 JSON);兩者都**去識別**(剝 `owner` / `id` / `lastAnchor`)。整份 JSON 檔也可直接轉交。
+- **遠端匯入的信任邊界**(`remote/`):`/aase import <短碼|網址>` 是插件唯一的網路行為,**只 outbound**(`java.net.http.HttpClient`,不開監聽 port);`base-url` 只接受 https(http 只限 localhost / 127.0.0.1),不跟隨轉址。回應邊讀邊計數,超過 `max-bytes`(預設 1 MiB)立即中止;連線與整體各有逾時;每人 cooldown、全服同時數上限。內容先嚴格 JSON 解析、再 schema + 語意驗證,通過後回主執行緒(Bukkit scheduler `runTask`,玩家已離線就丟棄),再走與 `load` 相同的守門:未存變更詢問 → 每人元件上限 → `checkLimits` → `checkRegion` → `AaseScenePlaceEvent` → 新 placement、重新擁有。`enabled: false` 時不建立 HttpClient 也不開執行緒。外來字串(作品名、錯誤訊息)放進 MiniMessage 前先跳脫。
+  - **不受信任來源一律嚴格驗證**:AASE1 分享碼、遠端短碼與任何外部 JSON 都走 `SceneCodec.decode`(預設 untrusted)→ `SceneValidator`,不論 `schemaVersion`(2 或缺省也一樣;schema 本身就描述了 v2 的弧度 pose、四元數、base64 物品與 `payload`)。只有 `SceneStore` 讀自己的存檔用 `trusted = true`,v2/缺省走舊的寬鬆讀取,舊存檔不會讀不出來。驗證順序:解析前用字元掃描算巢狀深度(略過字串內容與跳脫),超過 64 層在 `""` 報 `nesting too deep`;解析後每個數字必須是有限數(Gson 把 `1e999` 取成 double 是 Infinity),否則在該數字報 `must be a finite number`;之後才是 schema 與語意。schema 數值範圍:offset(元素、粒子、關鍵影格)與 translation ±256、scale ±64(負值為鏡像)、yaw/poseDeg/rotationDeg ±3600、粒子 count 0–1000、rateTicks 1–1200、lengthTicks 1–72000、tick 0–72000、各種 id ≤ 2147483647。網站 `validate.ts` 用同一份 schema、同樣順序,invalid fixtures 兩邊第一個 pointer 必須相同。AASE1 匯入失敗時回覆前 3 個 pointer(與遠端匯入同格式)。
+  - **物品 base64 是信任邊界**:`bukkit` 欄位(以及 v2 分享碼的裝備)會進 `BukkitObjectInputStream`,也就是 Java 反序列化任何人都能 POST 的位元組。`ItemCodec.decode` 掛 `ObjectInputFilter` 白名單(Bukkit `Wrapper`、Guava 不可變集合、`java.util` 常用集合、基本型別包裝與字串,外加深度/參照數/位元組數/陣列長度上限),其他類別一律拒絕,擋掉反序列化 gadget。物品**內容**仍可偽造(任意附魔、其他插件信任的自訂資料)——`id + components` 本來就做得到——所以展示品上的物品永遠不能回到玩家手上:裝備選單只複製游標、拿不出東西;原版取裝備被擋;本插件實體死亡時清空掉落物。
 - 存檔是「藍圖」;世界裡的實體是藍圖的一次「放置(placement)」。刪實體不刪存檔;可重複放置同一存檔到不同位置,每次放置各有自己的 placement ID(見 §2)。
 - **孤兒定義**:實體帶本插件的 PDC 但沒有東西能綁它——(a) 該 scene 沒有存檔,且沒有任何開著的 session 認領它的 placement / scene;或 (b) 存檔還在但已不列出它的 localId(發射器與元件各自比對)。若 session 的記憶體模型仍有該 localId(剛加還沒存),不算孤兒。`edit` 跳過孤兒、`admin whois` 標示孤兒,清除走 `/aase remove`。純邏輯在 `recall/RecallLogic.kt`(`OrphanRule`)。
 - **收回**(`recall/RecallService`)只改世界,不碰存檔;查找不走世界掃描:`EntityRegistry` 索引(UUID → Tag,以 `Server.getEntity` 解析)聯集 seed 附近 `getNearbyEntities`,都再用 PDC 過濾,所以只到得了已載入區塊。只處理請求者自己的實體(`aase.admin` 不放寬)。
@@ -167,7 +175,7 @@ aase.limit.<n>           數量上限覆寫(取最大)
 /aase close [save|discard]  結束編輯;有未存變更先問,save 存了再關,discard 不存並收回本份
 /aase list                我的場景清單(GUI)
 /aase export command      匯出 summon 指令(可複製)
-/aase share               產生分享碼文字(通常超過聊天 256 字,存成檔案;短碼匯入隨 1.3.0)
+/aase share               上傳取得短碼;關閉或失敗時給分享碼文字(超過聊天 256 字,貼到 AASE Studio 或存檔)
 /aase reload              重載設定(管理)
 /aase admin …             管理:編他人、purge、統計
 ```

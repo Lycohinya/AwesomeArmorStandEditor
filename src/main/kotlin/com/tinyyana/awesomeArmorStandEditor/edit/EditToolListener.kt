@@ -103,14 +103,14 @@ class EditToolListener(private val plugin: AwesomeArmorStandEditorPlugin) : List
             if (own) {
                 plugin.recall.previewEntity(player, entity, offerDeleteOne = true)
             } else {
-                plugin.texts.actionbar(player, "hint.punch-other", "owner" to plugin.recall.ownerName(tag.owner))
+                plugin.texts.actionbar(player, "hint.punch-other", "owner" to plugin.texts.escape(plugin.recall.ownerName(tag.owner)))
             }
             return
         }
         if (tool) return  // plain left click with the tool is the "−step" adjust, handled above
         if (!plugin.recall.hints.tryAcquire(player.uniqueId, System.currentTimeMillis())) return
         if (own) plugin.texts.actionbar(player, "hint.punch-own")
-        else plugin.texts.actionbar(player, "hint.punch-other", "owner" to plugin.recall.ownerName(tag.owner))
+        else plugin.texts.actionbar(player, "hint.punch-other", "owner" to plugin.texts.escape(plugin.recall.ownerName(tag.owner)))
     }
 
     @EventHandler

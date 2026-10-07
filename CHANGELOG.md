@@ -2,6 +2,31 @@
 
 本專案的詳細變更紀錄。格式大致遵循 [Keep a Changelog](https://keepachangelog.com/zh-TW/1.1.0/)。
 
+## [1.3.0] - 2026-10-07
+
+主題:**短碼分享與網站格式**。分享碼文字太長貼不進聊天,這版讓 `/aase share` 直接拿到短碼,別的伺服器打 `/aase import <短碼>` 就能放;存檔改成網站 AASE Studio 可以直接編輯的 schema v3。
+
+### Security(安全)
+
+- 物品 base64(分享碼、遠端場景的 `bukkit` 欄位)反序列化改走白名單 `ObjectInputFilter`,其他類別一律拒絕;本插件的展示實體死亡時不再掉落裝備(展示用物品可能來自別人的分享,不能流進玩家背包)。
+- 不受信任的場景來源(`/aase import` 的 AASE1 分享碼、遠端短碼、任何外部 JSON)一律跑 v3 schema + 語意驗證,舊格式(schemaVersion 2 或缺省)不再走寬鬆讀取,只有插件自己的存檔維持寬鬆;分享碼驗證失敗時列出前 3 個錯誤位置。數值必須是有限數(`1e999` 拒收),offset 與 translation 限 ±256 格、scale ±64、角度 ±3600,粒子數量、頻率與動畫長度也有上限;JSON 巢狀超過 64 層在解析前就拒絕。玩家輸入、遠端與檔案來的字串放進訊息前一律跳脫 MiniMessage 標籤。
+
+### Added(新增)
+
+- **`/aase import <短碼|網址|AASE1:…> [名稱]`。** 短碼(7 碼,不分大小寫)或 `https://…/s/<短碼>` 會從 AASE Studio 下載作品,下載完回主執行緒,再走與 `load` 相同的守門(未存變更詢問、每人上限、數量上限、領地、`AaseScenePlaceEvent`、新放置分組、擁有者換成匯入者)。找不到、逾時、檔案太大、不是作品資料、格式錯誤(列出前 3 個 JSON pointer)各有清楚的訊息;每人 cooldown、全服同時數上限;下載中登出就丟棄結果。
+- **`/aase share` 上傳取短碼。** 回 `[點擊複製 /aase import <短碼>]` 與 `[在 AASE Studio 開啟]`;上傳前去掉擁有者、場景 id、最後放置位置。關閉上傳或上傳失敗(含 429 太頻繁)時改給分享碼文字,提示貼到 AASE Studio 或存檔。分享碼文字(`AASE1:`)也一併去識別。
+- **設定**:`store.write-schema`(3 / 2)、`import.remote.enabled / base-url / timeout-seconds / max-bytes / cooldown-seconds / max-concurrent`、`share.upload`。插件只會主動對外連 HTTPS(http 只限 localhost),不開監聽 port;`enabled: false` 時不建立任何連線或執行緒。**既有伺服器的 config.yml 沒有這些 key 時,以預設值(遠端開啟)運作**,不想連外請明確寫 `enabled: false`。
+- **匯入或讀檔時物品裝不上會說是哪幾格**,例如 `#2 主手 minecraft:foo_sword`(別的版本才有的物品、模組物品)。
+- `schema/scene.v3.schema.json`:場景格式的真本(JSON Schema 2020-12),jar 內附一份;`src/test/resources/fixtures/`:與網站共用的 golden 樣本(6 份匯出、19 份錯誤 pointer、旋轉與姿勢數學)。
+- 新增 lang key:`remote.*`、`item.unresolved-*` / `item.legacy-data` / `item.slot.*`、`share.uploading` / `uploaded` / `copy-import` / `open-url` / `upload-*`、`scene.name-too-long`;改寫 `usage.import`、`help.share`、`help.import`、`share.hint` 與手冊分享頁。**已存在的 `lang/*.yml` 不會自動換成新句子**(你的檔案優先),想要新文案請刪掉該 key 或整份檔案讓插件重寫。
+
+### Changed(調整)
+
+- **存檔預設寫 schema v3**:姿勢存度數 `poseDeg`(4 位小數)、Display 旋轉存四元數、物品存 ItemRef `{id, count, components, bukkit}`、Display 內容分成 `item` / `block` / `text`。v2 舊檔照讀,存一次就變 v3;`store.write-schema: 2` 可繼續寫舊格式。v3 讀入時嚴格驗證(未知欄位、型別、互斥欄位、localId 重複等),錯誤以 JSON pointer 回報,與網站一致。
+- **物品解析**:先用存檔裡的 Bukkit 資料;沒有就用 `id + components` 交給伺服器解析(與 `/give` 相同語法)。
+- summon / mcfunction 匯出從 ItemRef 取物品 id 與數量;SNBT 字串跳脫 `\` `"` CR LF TAB,多行文字不再把指令切斷。
+- 場景名稱上限 64 字(`/aase new`、`/aase import … [名稱]`)。
+
 ## [1.2.0] - 2026-10-07
 
 主題:**收回**。以前放錯、不要的作品只有管理員能清,玩家自己只能站著看它留在世界;`new` 之後後悔、`close` 之後想反悔也沒有出路。這版讓玩家自己能把自己放的作品收掉,並讓「一次放置」成為一等概念,兩份複本不再互相牽連。

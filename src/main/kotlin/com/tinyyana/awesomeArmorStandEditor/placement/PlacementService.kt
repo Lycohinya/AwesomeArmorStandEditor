@@ -10,7 +10,8 @@ import com.tinyyana.awesomeArmorStandEditor.model.Quat
 import com.tinyyana.awesomeArmorStandEditor.model.Transform
 import com.tinyyana.awesomeArmorStandEditor.model.Vec3
 import com.tinyyana.awesomeArmorStandEditor.session.EditSession
-import com.tinyyana.awesomeArmorStandEditor.store.ItemCodec
+import com.tinyyana.awesomeArmorStandEditor.model.ItemRef
+import com.tinyyana.awesomeArmorStandEditor.store.ItemResolver
 import net.kyori.adventure.text.minimessage.MiniMessage
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer
 import org.bukkit.Bukkit
@@ -37,6 +38,24 @@ import java.util.UUID
  */
 class PlacementService(private val registry: EntityRegistry, private val keys: AaseKeys) {
 
+    /** One item slot that could not be turned into an ItemStack (slot: head/chest/legs/feet/mainhand/offhand/item). */
+    data class ItemFailure(val localId: Int, val slot: String, val id: String?)
+
+    /**
+     * apply() runs on every nudge, so resolved items are cached (small LRU; values are cloned on use).
+     * A failed resolve is cached too, so a bad id isn't re-parsed on every click.
+     */
+    private val itemCache = object : LinkedHashMap<ItemRef, ItemStack?>(64, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<ItemRef, ItemStack?>?) = size > 256
+    }
+
+    private fun resolve(ref: ItemRef): ItemStack? {
+        synchronized(itemCache) { if (itemCache.containsKey(ref)) return itemCache[ref]?.clone() }
+        val stack = ItemResolver.resolve(ref)
+        synchronized(itemCache) { itemCache[ref] = stack }
+        return stack?.clone()
+    }
+
     private val mm = MiniMessage.miniMessage()
     private val legacy = LegacyComponentSerializer.legacySection()
 
@@ -44,13 +63,17 @@ class PlacementService(private val registry: EntityRegistry, private val keys: A
         origin.clone().add(element.offset.x, element.offset.y, element.offset.z).apply { yaw = element.yaw }
 
     /** Spawn one element, tag it with ownership PDC, and return the live entity. */
-    fun spawn(origin: Location, sceneId: String, element: Element, owner: UUID, placementId: String, sceneName: String): Entity {
+    fun spawn(
+        origin: Location, sceneId: String, element: Element, owner: UUID, placementId: String, sceneName: String,
+        failures: MutableList<ItemFailure>? = null,
+    ): Entity {
         val loc = elementLocation(origin, element)
         val world = loc.world ?: error("Location has no world")
+        val sink = failures ?: mutableListOf()
         val entity: Entity = when (element) {
-            is ArmorStandElement -> world.spawn(loc, ArmorStand::class.java) { apply(it, element) }
+            is ArmorStandElement -> world.spawn(loc, ArmorStand::class.java) { sink += apply(it, element) }
             is DisplayElement -> when (element.kind) {
-                DisplayKind.ITEM -> world.spawn(loc, ItemDisplay::class.java) { apply(it, element) }
+                DisplayKind.ITEM -> world.spawn(loc, ItemDisplay::class.java) { sink += apply(it, element) }
                 DisplayKind.BLOCK -> world.spawn(loc, BlockDisplay::class.java) { apply(it, element) }
                 DisplayKind.TEXT -> world.spawn(loc, TextDisplay::class.java) { apply(it, element) }
             }
@@ -59,13 +82,19 @@ class PlacementService(private val registry: EntityRegistry, private val keys: A
         return entity
     }
 
-    /** Place every element of the session's scene at [origin], filling the live-entity map. */
-    fun placeAll(session: EditSession, origin: Location, owner: UUID) {
+    /**
+     * Place every element of the session's scene at [origin], filling the live-entity map.
+     * Returns the item slots that could not be resolved (unknown id, bad components) so the caller can
+     * tell the player which slots stayed empty.
+     */
+    fun placeAll(session: EditSession, origin: Location, owner: UUID): List<ItemFailure> {
         session.origin = origin
+        val failures = mutableListOf<ItemFailure>()
         for (element in session.scene.elements) {
             session.entities[element.localId] =
-                spawn(origin, session.scene.id, element, owner, session.placementId, session.scene.name)
+                spawn(origin, session.scene.id, element, owner, session.placementId, session.scene.name, failures)
         }
+        return failures
     }
 
     fun despawnAll(session: EditSession) {
@@ -83,19 +112,26 @@ class PlacementService(private val registry: EntityRegistry, private val keys: A
         }
     }
 
-    /** Re-apply the model to an existing entity after an edit. No-op on type mismatch. */
-    fun apply(entity: Entity, element: Element) {
+    /**
+     * Re-apply the model to an existing entity after an edit. No-op on type mismatch.
+     * Returns the item slots that could not be resolved (left empty).
+     */
+    fun apply(entity: Entity, element: Element): List<ItemFailure> {
+        val failures = mutableListOf<ItemFailure>()
         when {
-            entity is ArmorStand && element is ArmorStandElement -> applyArmorStand(entity, element)
-            entity is ItemDisplay && element is DisplayElement -> applyItemDisplay(entity, element)
+            entity is ArmorStand && element is ArmorStandElement -> applyArmorStand(entity, element, failures)
+            entity is ItemDisplay && element is DisplayElement -> applyItemDisplay(entity, element, failures)
             entity is BlockDisplay && element is DisplayElement -> applyBlockDisplay(entity, element)
             entity is TextDisplay && element is DisplayElement -> applyTextDisplay(entity, element)
         }
+        return failures
     }
 
-    /** Decode a slot to an ItemStack, or AIR to clear it (the setters here are non-null). */
-    private fun item(base64: String?): ItemStack =
-        base64?.let { ItemCodec.decode(it) } ?: ItemStack(Material.AIR)
+    /** Resolve a slot to an ItemStack, or AIR to clear it (the setters here are non-null). */
+    private fun item(ref: ItemRef?, localId: Int, slot: String, failures: MutableList<ItemFailure>): ItemStack {
+        ref ?: return ItemStack(Material.AIR)
+        return resolve(ref) ?: ItemStack(Material.AIR).also { failures += ItemFailure(localId, slot, ref.id) }
+    }
 
     private fun euler(e: EulerXYZ) = EulerAngle(e.x, e.y, e.z)
 
@@ -118,7 +154,7 @@ class PlacementService(private val registry: EntityRegistry, private val keys: A
         d.transformation = t.toBukkit()
     }
 
-    private fun applyArmorStand(s: ArmorStand, el: ArmorStandElement) {
+    private fun applyArmorStand(s: ArmorStand, el: ArmorStandElement, failures: MutableList<ItemFailure>) {
         applyPose(s, el.pose)
 
         s.isSmall = el.flags.small
@@ -130,12 +166,13 @@ class PlacementService(private val registry: EntityRegistry, private val keys: A
         s.isGlowing = el.flags.glowing
 
         val eq = s.equipment
-        eq.setHelmet(item(el.equipment.head))
-        eq.setChestplate(item(el.equipment.chest))
-        eq.setLeggings(item(el.equipment.legs))
-        eq.setBoots(item(el.equipment.feet))
-        eq.setItemInMainHand(item(el.equipment.mainHand))
-        eq.setItemInOffHand(item(el.equipment.offHand))
+        val id = el.localId
+        eq.setHelmet(item(el.equipment.head, id, "head", failures))
+        eq.setChestplate(item(el.equipment.chest, id, "chest", failures))
+        eq.setLeggings(item(el.equipment.legs, id, "legs", failures))
+        eq.setBoots(item(el.equipment.feet, id, "feet", failures))
+        eq.setItemInMainHand(item(el.equipment.mainHand, id, "mainhand", failures))
+        eq.setItemInOffHand(item(el.equipment.offHand, id, "offhand", failures))
 
         val name = el.customName
         if (name.isNullOrBlank()) {
@@ -147,8 +184,11 @@ class PlacementService(private val registry: EntityRegistry, private val keys: A
         }
     }
 
-    private fun applyItemDisplay(d: ItemDisplay, el: DisplayElement) {
-        d.setItemStack(el.payload.takeIf { it.isNotBlank() }?.let { ItemCodec.decode(it) })
+    private fun applyItemDisplay(d: ItemDisplay, el: DisplayElement, failures: MutableList<ItemFailure>) {
+        val ref = el.item
+        val stack = ref?.let { resolve(it) }
+        if (ref != null && stack == null) failures += ItemFailure(el.localId, "item", ref.id)
+        d.setItemStack(stack)
         applyDisplayCommon(d, el)
     }
 

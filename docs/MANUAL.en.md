@@ -264,7 +264,11 @@ Multiple elements with their own `key` calls animate together. For finer control
 - Going offline (quit, disconnect) stops any playing animation and ends the session; **nothing is saved and nothing is removed**. The build stays in the world; use `/aase edit` to pick it up again.
 - `/aase delete [element id]` — deletes the selected element, or the one you name (`/aase delete 3`). **World first**: the entity is removed, then the element leaves the build. If no entity can be found in the world (for example its chunk is not loaded), it says so plainly ("No entity for #3 found in the world"), still drops the element from the model, and gives you `[Save]` and `[Recall what you're looking at]` buttons. Remember to save afterwards.
 - `/aase info` — current scene info (element count, armor stands/displays, emitters, animation, selection, save state).
-- **Share code text**: `/aase share` → chat shows `[Click to copy the share code text to your clipboard]` (`AASE1:...`, a compressed scene). **The code is usually longer than chat's 256-character limit, so it can't be pasted into the chat box**; paste it into a text file to keep or pass on. The `/aase import <code> [new name]` command still exists (ownership becomes the importer's, with a new id; gated by the per-player element cap; an invalid code reports "invalid"), but it is of no use when the code doesn't fit in chat. **Short-code import via the AASE Studio website is coming in 1.3.0**; until then use file sharing below.
+- **Share (short code)**: `/aase share` uploads the build to AASE Studio and gives you a 7-character **short code**, with `[Click to copy /aase import <code>]` and `[Open in AASE Studio]` buttons. On any server, `/aase import <code> [new name]` places a copy at your feet (ownership becomes the importer's, with a new id; per-player cap and region checks apply). The code may also be the full link (`https://…/s/<code>`), any letter case. Codes are kept on the website for a while (30 days by default); share again after that.
+  - Before uploading, the **owner, scene id and last anchor are stripped**, so the website never sees your UUID.
+  - If the server turned uploads off (`share.upload: false`) or remote access off (`import.remote.enabled: false`), or the upload fails (no answer, too many uploads, build too big), you get **share code text** instead: `[Click to copy the share code text to your clipboard]` (`AASE1:...`). It is longer than chat's 256-character limit; paste it into AASE Studio or keep it in a file. `/aase import AASE1:…` still imports it.
+  - If an item is **unknown to the importing server** (an item from another version, a modded item), that slot stays empty and chat lists which ones, e.g. `#2 main hand minecraft:foo_sword`. The rest is placed normally.
+  - With remote import off, `/aase import <short code>` answers "This server doesn't allow remote imports"; share code text still works.
 - **File sharing**: the JSON file is portable too — hand someone `scenes/…/xxx.json` and have them drop it into their own `scenes/<their-uuid>/` (remember to edit the `owner` field inside).
 
 ### Recalling your own placed work (`/aase remove`)
@@ -334,7 +338,7 @@ Usage: drop the folder into the world's `datapacks/`, run `/reload`, then:
 | `/aase delete [element id]` | Delete the selected (or the named) element; world first | aase.use |
 | `/aase remove look` / `here [radius]` / `scene <name>` | Preview recalling your own placed work (yours only) | aase.use |
 | `/aase remove confirm` / `cancel` | Confirm / cancel a recall within 30 seconds | aase.use |
-| `/aase share` / `import <code> [name]` | Share code text (keep it in a file) / import | aase.scene.share |
+| `/aase share` / `import <code\|link\|AASE1:…> [name]` | Upload for a short code (or share code text) / import | aase.scene.share |
 | `/aase pose save <id> [name]` | Save into the shared preset library | **aase.preset.save (default: OP)** |
 | `/aase export command` / `export function` | Export (writes server files) | **aase.export.command (default: OP)** |
 | `/aase close [save\|discard]` | End the session; asks first if there are unsaved changes. `save` saves then closes, `discard` doesn't save and recalls this copy | aase.use (`close save` also needs aase.scene.save) |
@@ -382,6 +386,9 @@ Deliberate boundaries — do not mistake this for a general entity remover:
 ## 17. Configuration files
 
 - **config.yml**: `language` (`auto` / `zh_TW` / `en`), tool material, step sizes, per-player/per-chunk/global element caps, region-event-probe toggle, particle budget and range, `admin.max-purge-radius` (default 64; also the cap for players' `/aase remove here` radius).
+  - `store.write-schema`: save format, `3` (default; degrees and item ids, editable in AASE Studio) or `2` (legacy, for servers still on 1.2.x or older). The plugin reads both.
+  - `import.remote.*`: remote import. `enabled` (off = no network at all), `base-url` (https only; plain http only for localhost), `timeout-seconds`, `max-bytes` (default 1 MiB), `cooldown-seconds` (per player), `max-concurrent` (server-wide).
+  - `share.upload`: whether `/aase share` uploads for a short code. The plugin only makes outbound connections and never opens a listening port.
 - **presets.yml**: pose and effect presets (angles in degrees, freely editable; `/aase pose save` writes here). A preset's **display name** comes from `preset.name.<id>` in the lang file; presets you save yourself have no such key and show the `name` from presets.yml.
 - **lang/zh_TW.yml, lang/en.yml**: every player-facing string (MiniMessage; command names use `<aqua>`, click hints use `<yellow>`), plus `guide.pages` — the in-game paginated book (parchment background, so use dark colors). To add a language, copy a file, rename it, and point `language` at it.
 
@@ -399,7 +406,7 @@ All of the above take effect with `/aase reload`, no restart needed.
 
 **Q: Someone left a build in my claim and I can't break it?** Elements are deliberately indestructible, so a stray arrow, creeper, or punch can't ruin an hour of posing. Stand there and run `/aase clear <radius>` — you have build rights inside your claim, so it clears; outside it, other people's elements stay put. Their saved scene is untouched, so they can re-place it elsewhere.
 
-**⚠ Admins: `/kill` goes straight through the protection.** Vanilla armor stands are removed outright by `BYPASSES_INVULNERABILITY` damage (`/kill`, the void) without firing `EntityDamageEvent`, so this plugin's listener never sees it. `/kill @e[type=armor_stand]` will wipe every build on the server, hand-placed vanilla stands included. Use `/aase clear` or `/aase admin remove|purge` — they only ever touch entities this plugin tagged.
+**⚠ Admins: don't use `/kill` on builds.** What `/kill` does to this plugin's elements depends on the server version: on 26.2 it went straight through the protection (`/kill @e[type=armor_stand]` wipes every build, hand-placed vanilla stands included); on 26.3 the protection blocked it and the element stayed. Either way a killed element drops none of its equipment (display items may come from someone else's share). Use `/aase clear` or `/aase admin remove|purge` — they only ever touch entities this plugin tagged.
 
 **Q: `load` after editing creates two copies?** `load` always places **a new copy**. To keep editing an existing build, use `/aase edit`. Recall the one you don't want with `/aase remove look`.
 
@@ -434,7 +441,6 @@ Next steps towards a "full animation tool" (not yet built):
 - **Visual timeline GUI**: drag keyframes, scrub a preview, replacing the current `/aase anim` commands.
 - **In-between pose helper**: pick two saved poses, generate the animation between them with one click.
 - **Easing**: ease-in/out beyond linear, for more natural motion.
-- **Short-code import (planned for 1.3.0)**: share code text is too long for the chat box, so short-code import is planned alongside the AASE Studio website.
 - **More external API / events**: let other plugins hook into our save/place events.
 - **Drag-and-drop equipment GUI**, a visual editor for particles/animation.
 

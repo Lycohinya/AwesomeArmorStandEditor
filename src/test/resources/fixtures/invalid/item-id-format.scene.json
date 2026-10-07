@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 3,
+  "name": "Bad",
+  "elements": [
+    {
+      "type": "display",
+      "localId": 1,
+      "offset": [
+        0,
+        0,
+        0
+      ],
+      "kind": "ITEM",
+      "item": {
+        "id": "Minecraft:Stone"
+      }
+    }
+  ]
+}

@@ -41,3 +41,36 @@ admin:
   # 只會清除「本插件放置」且「在已載入區塊內」的元件,不會碰玩家手放的原版盔甲座。
   max-purge-radius: 64
 
+
+# 場景存檔格式(/aase save 寫出的 scenes/*.json)
+store:
+  # 3 = 新格式(預設):姿勢用度數 poseDeg、物品用 ItemRef {id, count, components, bukkit},可直接在 AASE Studio 編輯
+  # 2 = 舊格式:姿勢用弧度、物品只存 Bukkit base64,給還在用 1.2.x 以前版本的伺服器讀
+  #     (只有 id 沒有 base64 的物品會先在伺服器上轉成物品再存;轉不出來的欄位會省略並寫警告到主控台)
+  # 兩種格式插件都讀得懂,切換不需要轉檔
+  write-schema: 3
+
+# 遠端匯入:/aase import <短碼|網址> 從 AASE Studio 下載作品
+# 插件只會主動對外連線(HTTPS),不會開任何監聽 port
+import:
+  remote:
+    # false = 整條遠端路徑關閉(不建立連線、不開執行緒),/aase import 短碼 會回「此伺服器未開放遠端匯入」
+    # 分享碼文字(AASE1:…)不受影響
+    enabled: true
+    # AASE Studio 的網址。只允許 https;http 只限 localhost / 127.0.0.1(本機測試用)
+    base-url: "https://lyco-aase.tinyyana.com"
+    # 連線與等待回應的逾時(秒)
+    timeout-seconds: 10
+    # 下載的作品檔最大位元組數,超過就中止(預設 1 MiB)
+    max-bytes: 1048576
+    # 每位玩家兩次遠端匯入/上傳之間至少間隔幾秒
+    cooldown-seconds: 10
+    # 全服同時進行的下載/上傳上限
+    max-concurrent: 4
+
+share:
+  # true = /aase share 先上傳到 AASE Studio 取得短碼(需要 import.remote.enabled: true);
+  #        上傳失敗時自動改給分享碼文字
+  # false = 只給分享碼文字(點擊複製,提示貼到 AASE Studio 或存成檔案)
+  # 上傳前會去掉擁有者、場景 id、最後放置位置
+  upload: true

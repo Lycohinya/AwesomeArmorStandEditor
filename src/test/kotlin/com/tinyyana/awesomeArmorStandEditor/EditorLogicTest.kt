@@ -15,6 +15,7 @@ import com.tinyyana.awesomeArmorStandEditor.model.DisplayElement
 import com.tinyyana.awesomeArmorStandEditor.model.DisplayKind
 import com.tinyyana.awesomeArmorStandEditor.model.Equipment
 import com.tinyyana.awesomeArmorStandEditor.model.EulerXYZ
+import com.tinyyana.awesomeArmorStandEditor.model.ItemRef
 import com.tinyyana.awesomeArmorStandEditor.model.Keyframe
 import com.tinyyana.awesomeArmorStandEditor.model.ParticleEmitter
 import com.tinyyana.awesomeArmorStandEditor.model.Pose6
@@ -47,7 +48,7 @@ class EditorLogicTest {
             offset = Vec3(0.5, 0.0, -0.5),
             yaw = 45f,
             pose = Pose6(head = EulerXYZ(0.1, -0.2, 0.3)),
-            equipment = Equipment(head = "base64helmet", mainHand = "base64sword"),
+            equipment = Equipment(head = ItemRef.legacy("base64helmet"), mainHand = ItemRef.legacy("base64sword")),
             flags = ArmorStandFlags(small = true, invisible = false, arms = true),
             customName = "<red>守衛",
         )
@@ -62,7 +63,8 @@ class EditorLogicTest {
             viewRange = 2.5f,
         )
 
-        val restored = SceneCodec.fromJson(SceneCodec.toJson(scene))
+        // v2 is the lossless legacy format (radians); v3 rounds poseDeg to 4 decimals, see SceneCodecTest
+        val restored = SceneCodec.fromJson(SceneCodec.toJson(scene, SceneCodec.WriteOptions(schema = 2)))
         assertEquals(scene, restored)
     }
 
@@ -142,7 +144,10 @@ class EditorLogicTest {
 
         val code = ShareCode.encode(scene)
         assertTrue(code.startsWith("AASE1:"), code)
-        assertEquals(scene, ShareCode.decode(code))
+        // The share text is de-identified: id and owner come back fresh / empty.
+        val decoded = ShareCode.decode(code)!!
+        assertEquals(scene.copy(id = decoded.id, owner = ""), decoded)
+        assertFalse(decoded.id == scene.id)
 
         // Malformed / hostile input returns null instead of throwing into game logic.
         assertEquals(null, ShareCode.decode("not-a-real-code"))

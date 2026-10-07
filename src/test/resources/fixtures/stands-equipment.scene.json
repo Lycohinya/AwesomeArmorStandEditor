@@ -1,0 +1,50 @@
+{
+  "schemaVersion": 3,
+  "id": "0b6f3c1e-1a2b-4c3d-8e4f-5a6b7c8d9e01",
+  "name": "Guard post",
+  "elements": [
+    {
+      "type": "armor_stand",
+      "localId": 1,
+      "offset": [0, 0, 0],
+      "yaw": 90,
+      "poseDeg": {
+        "head": [-10.5, 0, 0],
+        "body": [0, 5, 0],
+        "rightArm": [-90, 45, 12.25],
+        "leftArm": [15, -30, 0],
+        "leftLeg": [-3, 0, -2],
+        "rightLeg": [3, 0, 2]
+      },
+      "equipment": {
+        "head": { "id": "minecraft:iron_helmet" },
+        "chest": { "id": "minecraft:iron_chestplate", "components": "[enchantments={protection:2}]" },
+        "legs": { "id": "minecraft:iron_leggings" },
+        "feet": { "id": "minecraft:iron_boots" },
+        "mainHand": { "id": "minecraft:diamond_sword", "count": 1, "components": "[custom_name=\"Oathkeeper\",enchantments={sharpness:5}]" },
+        "offHand": { "id": "minecraft:shield" }
+      },
+      "flags": { "noBasePlate": true },
+      "customName": "<gold>Guard \"North\"</gold>"
+    },
+    {
+      "type": "armor_stand",
+      "localId": 2,
+      "offset": [2.5, 0, -1.25],
+      "yaw": -45,
+      "poseDeg": { "head": [20, -15, 0], "rightArm": [-120, 0, 0] },
+      "equipment": {
+        "mainHand": { "id": "minecraft:torch", "count": 16 },
+        "head": { "id": "minecraft:carved_pumpkin" }
+      },
+      "flags": { "small": true, "invisible": false, "glowing": true }
+    },
+    {
+      "type": "armor_stand",
+      "localId": 3,
+      "offset": [-1, 0.5, 2],
+      "flags": { "marker": true, "invisible": true, "arms": false, "noGravity": false },
+      "customName": "<aqua>Back\\slash"
+    }
+  ]
+}

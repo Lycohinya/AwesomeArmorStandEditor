@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 3,
+  "name": "Bad",
+  "elements": [
+    {
+      "type": "armor_stand",
+      "localId": 1,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "display",
+      "localId": 1,
+      "offset": [
+        0,
+        0,
+        0
+      ],
+      "kind": "TEXT",
+      "text": "hi"
+    }
+  ]
+}

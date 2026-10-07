@@ -1,0 +1,2 @@
+/summon minecraft:armor_stand ~0 ~0 ~0 {Small:0b,NoBasePlate:0b,ShowArms:1b,Marker:0b,Invisible:0b,NoGravity:1b,Glowing:0b,Rotation:[0f,0f],Pose:{Head:[0f,0f,0f],Body:[0f,0f,0f],LeftArm:[0f,0f,0f],RightArm:[-100f,0f,20f],LeftLeg:[0f,0f,0f],RightLeg:[0f,0f,0f]},ArmorItems:[{},{},{},{}],HandItems:[{id:"minecraft:lantern",count:1},{}]}
+/summon minecraft:item_display ~1 ~1 ~0 {transformation:{translation:[0f,0f,0f],left_rotation:[0f,0f,0f,1f],scale:[0.75f,0.75f,0.75f],right_rotation:[0f,0f,0f,1f]},billboard:"fixed",view_range:1f,item:{id:"minecraft:amethyst_shard",count:1}}

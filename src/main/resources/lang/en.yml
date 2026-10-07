@@ -22,7 +22,7 @@ usage:
   export: "<gray>Usage: <aqua>/aase export <command|function>"
   pose: "<gray>Usage: <aqua>/aase pose <preset id></aqua> to apply, or <aqua>/aase pose save <id> [name]</aqua> to save your own"
   fx: "<gray>Usage: <aqua>/aase fx <effect id></aqua> (see the list with <aqua>/aase presets</aqua>)"
-  import: "<gray>Usage: <aqua>/aase import <share code> [new name]</aqua> (get a code with <aqua>/aase share</aqua>)"
+  import: "<gray>Usage: <aqua>/aase import <short code|link|AASE1:…> [new name]</aqua> (get a short code with <aqua>/aase share</aqua> or from AASE Studio)"
   select: "<gray>Usage: <aqua>/aase select <element id|next|prev>"
   admin: "<gray>Usage: <aqua>/aase admin <whois|remove|purge <radius> [player]|confirm>"
   clear: "<gray>Usage: <aqua>/aase clear <radius></aqua> (removes other people's elements where you may build)"
@@ -69,6 +69,7 @@ scene:
   saved: "<green>Saved <white>{name}</white> ({count} elements)"
   loaded: "<green>Placed <white>{name}</white> ({count} elements)"
   not-found: "<red>No scene named <white>{name}</white>"
+  name-too-long: "<red>Scene names can be at most {max} characters"
 
 add:
   stand: "<green>Added armor stand <white>#{id}"
@@ -177,11 +178,48 @@ export:
 
 share:
   click: "<yellow>[Click to copy the share code text to your clipboard]"
-  hint: "<gray>Share code text is usually longer than chat's 256-character limit; keep it in a file to store or pass on, don't paste it into chat"
+  hint: "<gray>Share code text is longer than chat's 256-character limit; paste it into AASE Studio or keep it in a file, don't paste it into chat"
+  uploading: "<gray>Uploading to AASE Studio for a short code"
+  uploaded: "<green>Uploaded — short code <white>{code}</white>; others can import it with <aqua>/aase import {code}</aqua>"
+  copy-import: "<yellow>[Click to copy {command}]"
+  open-url: "<aqua>[Open in AASE Studio]"
+  upload-rate-limited: "<yellow>Too many uploads, AASE Studio is refusing for now — here is the share code text instead"
+  upload-too-large: "<yellow>This build is too big for AASE Studio — here is the share code text instead"
+  upload-rejected: "<yellow>AASE Studio didn't accept this build's format — here is the share code text instead"
+  upload-timeout: "<yellow>AASE Studio timed out — here is the share code text instead"
+  upload-failed: "<yellow>Upload failed ({reason}) — here is the share code text instead"
   import-bad: "<red>That share code is invalid or corrupt — check you copied all of it"
   import-too-big: "<red>That build has too many elements (over your cap of {max}) to import"
   imported: "<green>Imported and placed <white>{name}</white> ({count} elements) — remember to <aqua>/aase save</aqua>"
   place-cancelled: "<red>You can't place a build here"
+
+remote:
+  disabled: "<red>This server doesn't allow remote imports"
+  fetching: "<gray>Downloading short code <white>{code}</white> from AASE Studio"
+  cooldown: "<yellow>Wait {seconds} s and try again"
+  busy: "<yellow>The server is busy with other downloads, try again in a moment"
+  not-found: "<red>No build found for short code <white>{code}</white> — mistyped or expired"
+  timeout: "<red>AASE Studio didn't answer (timed out), try again later"
+  too-large: "<red>The build file is over {max}, download stopped"
+  not-json: "<red>AASE Studio didn't send build data"
+  invalid: "<red>This build has format problems and can't be imported ({count} found):"
+  invalid-line: "<gray>· <white>{pointer}</white> {message}"
+  http-error: "<red>AASE Studio answered with an error (HTTP {status}), try again later"
+  failed: "<red>Couldn't reach AASE Studio ({reason})"
+
+item:
+  unresolved-header: "<yellow>{count} item slot(s) stayed empty (this server doesn't know them):"
+  unresolved-line: "<gray>#{id} {slot} <white>{item}"
+  unresolved-more: "<gray>and {count} more not listed"
+  legacy-data: "legacy item data"
+  slot:
+    head: "head"
+    chest: "chest"
+    legs: "legs"
+    feet: "feet"
+    mainhand: "main hand"
+    offhand: "off hand"
+    item: "display item"
 
 info:
   header: "<gold>◆ Scene: <white>{name}"
@@ -285,8 +323,8 @@ help:
   list: "<aqua>/aase list <gray>list your scenes"
   info: "<aqua>/aase info <gray>show info about the current scene"
   export: "<aqua>/aase export command <gray>export a summon command"
-  share: "<aqua>/aase share <gray>generate share code text (copy it into a file)"
-  import: "<aqua>/aase import <code> [name] <gray>import someone's share code"
+  share: "<aqua>/aase share <gray>upload for a short code (share code text if uploads are off)"
+  import: "<aqua>/aase import <short code|link|AASE1:…> [name] <gray>import someone's shared build"
   remove: "<aqua>/aase remove look|here|scene <gray>recall your own placed work (saves are kept)"
   close: "<aqua>/aase close <gray>finish editing (the build stays; asks first if there are unsaved changes)"
 
@@ -552,10 +590,11 @@ guide:
       <dark_blue>/aase list<black> your saves
       <dark_blue>/aase info<black> scene info
 
-      <black>Share code text:
+      <black>Share:
       <dark_blue>/aase share
-      <black>too long for chat,
-      keep it in a file
+      <black>gives a short code;
+      others run
+      <dark_blue>/aase import code
     - |-
       <dark_gray>⑨ Export
 

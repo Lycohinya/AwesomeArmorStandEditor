@@ -5,6 +5,7 @@ import com.tinyyana.awesomeArmorStandEditor.model.DisplayElement
 import com.tinyyana.awesomeArmorStandEditor.model.DisplayKind
 import com.tinyyana.awesomeArmorStandEditor.model.Element
 import com.tinyyana.awesomeArmorStandEditor.model.EulerXYZ
+import com.tinyyana.awesomeArmorStandEditor.model.ItemRef
 import com.tinyyana.awesomeArmorStandEditor.model.Scene
 import com.tinyyana.awesomeArmorStandEditor.store.ItemCodec
 import java.util.Locale
@@ -14,7 +15,7 @@ import java.util.Locale
  * relative to whoever runs the commands.
  *
  * NBT caveat: armor-stand Pose/flags and display transformation have been stable vanilla NBT for
- * years; item/block/text payloads are emitted by id (enchants/custom item data are NOT carried).
+ * years; items are emitted by ItemRef id + count (components / custom item data are NOT carried).
  * If a future MC changes this NBT shape, this exporter is the single isolated place to fix.
  */
 object SummonExporter {
@@ -74,10 +75,17 @@ object SummonExporter {
         return "ArmorItems:[$armor],HandItems:[$hands]"
     }
 
-    private fun itemNbt(base64: String?): String {
-        if (base64 == null) return "{}"
-        val item = ItemCodec.decode(base64) ?: return "{}"
-        return "{id:\"${item.type.key}\",count:${item.amount.coerceAtLeast(1)}}"
+    /** id + count from the ItemRef (components are not exported). Legacy base64-only items are decoded. */
+    private fun itemNbt(ref: ItemRef?): String {
+        if (ref == null) return "{}"
+        val (id, count) = idAndCount(ref) ?: return "{}"
+        return "{id:\"$id\",count:${count.coerceAtLeast(1)}}"
+    }
+
+    private fun idAndCount(ref: ItemRef): Pair<String, Int>? {
+        ref.id?.let { return it to ref.count }
+        val item = ref.bukkit?.let { ItemCodec.decode(it) } ?: return null
+        return item.type.key.toString() to item.amount
     }
 
     private fun displayNbt(el: DisplayElement, tag: String?): String {
@@ -91,8 +99,8 @@ object SummonExporter {
         }
         el.glowColor?.let { tags += "Glowing:1b,glow_color_override:$it" }
         when (el.kind) {
-            DisplayKind.ITEM -> ItemCodec.decode(el.payload)?.let {
-                tags += "item:{id:\"${it.type.key}\",count:${it.amount.coerceAtLeast(1)}}"
+            DisplayKind.ITEM -> el.item?.let { idAndCount(it) }?.let { (id, count) ->
+                tags += "item:{id:\"$id\",count:${count.coerceAtLeast(1)}}"
             }
             DisplayKind.BLOCK -> tags += "block_state:{Name:\"${blockName(el.payload)}\"}"
             DisplayKind.TEXT -> tags += "text:${snbt(plain(el.payload))}"
@@ -134,6 +142,23 @@ object SummonExporter {
      * SNBT double-quoted string. In MC 26.2 text components (CustomName, text_display text) are
      * SNBT — a bare quoted string is plain text. The old JSON-string form '{"text":"..."}' is
      * stored literally (verified via /summon on 26.2), so we must NOT use it.
+     *
+     * Escaping (shared with AASE Studio, keep both in step): backslash, double quote, CR, LF and TAB
+     * become `\\`, `\"`, `\r`, `\n`, `\t`; every other character is left as is. A raw line break would
+     * split the command.
      */
-    private fun snbt(text: String): String = "\"${text.replace("\\", "\\\\").replace("\"", "\\\"")}\""
+    internal fun snbt(text: String): String {
+        val sb = StringBuilder(text.length + 2).append('"')
+        for (c in text) {
+            when (c) {
+                '\\' -> sb.append("\\\\")
+                '"' -> sb.append("\\\"")
+                '\r' -> sb.append("\\r")
+                '\n' -> sb.append("\\n")
+                '\t' -> sb.append("\\t")
+                else -> sb.append(c)
+            }
+        }
+        return sb.append('"').toString()
+    }
 }

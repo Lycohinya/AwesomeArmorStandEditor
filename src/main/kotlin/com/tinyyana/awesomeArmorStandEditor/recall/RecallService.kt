@@ -125,7 +125,7 @@ class RecallService(private val plugin: AwesomeArmorStandEditorPlugin) {
     fun previewEntity(player: Player, target: Entity, offerDeleteOne: Boolean) {
         val tag = registry.read(target) ?: return texts.send(player, "remove.look-none")
         if (tag.owner != player.uniqueId) {
-            return texts.send(player, "remove.not-yours", "owner" to ownerName(tag.owner))
+            return texts.send(player, "remove.not-yours", "owner" to texts.escape(ownerName(tag.owner)))
         }
         val (scope, _) = groupOf(target, tag)
         val extra = mutableListOf<Component>()
@@ -153,7 +153,7 @@ class RecallService(private val plugin: AwesomeArmorStandEditorPlugin) {
     /** `/aase remove scene <name>`. */
     fun previewScene(player: Player, name: String) {
         val legacyId = plugin.store.loadByName(player.uniqueId, name)?.id
-        preview(player, RemoveScope.SceneName(name, legacyId), player.location.clone(), emptyList(), noneKey = "remove.scene-none", "name" to name)
+        preview(player, RemoveScope.SceneName(name, legacyId), player.location.clone(), emptyList(), noneKey = "remove.scene-none", "name" to texts.escape(name))
     }
 
     private fun preview(

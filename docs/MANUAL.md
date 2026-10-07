@@ -263,7 +263,11 @@ Display 實體比盔甲座自由太多:任意縮放、任意旋轉、無碰撞�
 - 離線(登出、斷線)會自動停掉播放中的動畫並結束 session;**不存檔、也不刪作品**,作品留在世界,回來用 `/aase edit` 接續。
 - `/aase delete [元件編號]` — 刪掉選取的元件,或指定編號(`/aase delete 3`)。**世界優先**:實體會先被移除,再從作品裡拿掉。如果世界裡找不到那個實體(例如在未載入的區塊),會直說「世界中找不到 #3 的實體」,模型仍照刪,並給你 `[儲存]` 與 `[收回看著的作品]` 兩顆按鈕。刪完記得存檔。
 - `/aase info` — 目前場景資訊(元件數、盔甲座/Display、發射器、動畫、選取、存檔狀態)。
-- **分享碼文字**:`/aase share` → 聊天出現 `[點擊複製分享碼文字到剪貼簿]`(`AASE1:...`,就是壓縮過的場景)。**這串碼通常超過聊天欄 256 字的上限,不能貼進聊天框**,請貼進文字檔保存或轉交。`/aase import <碼> [新名稱]` 指令還在(owner 變成匯入者、新的 id、受每人數量上限守門、碼壞掉回「無效」),但碼放不進聊天欄時用不到;**網站 AASE Studio 的短碼匯入即將在 1.3.0 推出**,在那之前請用下面的檔案方式。
+- **分享(短碼)**:`/aase share` 會把作品上傳到 AASE Studio,回你一組 7 碼的**短碼**,附 `[點擊複製 /aase import <短碼>]` 與 `[在 AASE Studio 開啟]` 兩顆按鈕。別人在自己的伺服器輸入 `/aase import <短碼> [新名稱]` 就會在腳下放一份(owner 變成匯入者、新的 id,受每人數量上限、領地檢查守門)。短碼也可以是整段網址(`https://…/s/<短碼>`),大小寫不拘。短碼在網站上保留一段時間(預設 30 天),過期就要重新分享。
+  - 上傳前會**去掉擁有者、場景 id、最後放置位置**,網站拿不到你的 UUID。
+  - 伺服器關掉上傳(`share.upload: false`)、關掉遠端(`import.remote.enabled: false`)、或上傳失敗(網站沒回應、太頻繁、作品太大)時,改給**分享碼文字** `[點擊複製分享碼文字到剪貼簿]`(`AASE1:...`)。這串碼超過聊天欄 256 字的上限,請貼到 AASE Studio 或存成檔案轉交;`/aase import AASE1:…` 照樣能匯入(通常要用指令方塊或聊天以外的方式輸入)。
+  - 匯入時有物品**這台伺服器認不得**(例如別的版本才有的物品、模組物品),那一格會留空,聊天會列出是哪幾格,例如 `#2 主手 minecraft:foo_sword`。其他部分照常放置。
+  - 伺服器關掉遠端匯入時,`/aase import <短碼>` 會回「此伺服器未開放遠端匯入」;分享碼文字不受影響。
 - **分享(檔案)**:JSON 檔本身也可攜 —— 把 `scenes/…/xxx.json` 傳給別人丟進他的 `scenes/<他的UUID>/`(記得改檔內 `owner`)。
 
 ### 收回自己放在世界裡的作品(`/aase remove`)
@@ -333,7 +337,7 @@ data/aase/function/frames/frame_*.mcfunction
 | `/aase delete [元件編號]` | 刪選取的(或指定編號的)元件;世界優先 | aase.use |
 | `/aase remove look` / `here [半徑]` / `scene <名稱>` | 預覽收回自己放的作品(只動自己的) | aase.use |
 | `/aase remove confirm` / `cancel` | 30 秒內確認 / 取消收回 | aase.use |
-| `/aase share` / `import <碼> [名稱]` | 分享碼文字(存成檔案轉交)/ 匯入 | aase.scene.share |
+| `/aase share` / `import <短碼\|網址\|AASE1:…> [名稱]` | 上傳取得短碼(或給分享碼文字)/ 匯入 | aase.scene.share |
 | `/aase pose save <id> [名稱]` | 存進共用範本庫 | **aase.preset.save(預設 OP)** |
 | `/aase export command` / `export function` | 匯出(寫伺服器檔案) | **aase.export.command(預設 OP)** |
 | `/aase close [save\|discard]` | 結束編輯;有未存變更會先問,`save` 存了再關、`discard` 不存並收回這份作品 | aase.use(`close save` 另需 aase.scene.save) |
@@ -381,6 +385,9 @@ aase.bypass.limit        略過數量上限 — 預設 OP
 ## 17. 設定檔
 
 - **config.yml**:`language`(`auto` / `zh_TW` / `en`)、工具材質、步進大小、每人/每區塊/全域數量上限、領地事件探針開關、粒子預算與範圍、`admin.max-purge-radius`(管理員清除半徑上限,預設 64;玩家 `/aase remove here` 的半徑也以它為上限)。
+  - `store.write-schema`:存檔格式,`3`(預設,度數與物品 id,可以直接在 AASE Studio 編輯)或 `2`(舊格式,給還在跑 1.2.x 以前的伺服器讀)。兩種插件都讀得懂。
+  - `import.remote.*`:遠端匯入。`enabled`(關掉就完全不連線)、`base-url`(只接受 https;http 只限 localhost)、`timeout-seconds`、`max-bytes`(預設 1 MiB)、`cooldown-seconds`(每人)、`max-concurrent`(全服)。
+  - `share.upload`:`/aase share` 要不要上傳取短碼。插件只會主動對外連線,不開任何監聽 port。
 - **presets.yml**:姿勢與特效範本(角度用度,可增改;`/aase pose save` 會寫進這裡)。範本的**顯示名**由語言檔的 `preset.name.<id>` 決定;自己存的範本沒有這個 key,就直接顯示 presets.yml 裡的 `name`。
 - **lang/zh_TW.yml、lang/en.yml**:所有玩家可見文字(MiniMessage;指令名 `<aqua>`、點擊提示 `<yellow>`),連同 `guide.pages`(遊戲內翻頁手冊,書是紙底色,請用深色)。要加語言就複製一份改檔名,再把 `language` 指過去。
 
@@ -398,7 +405,7 @@ aase.bypass.limit        略過數量上限 — 預設 OP
 
 **Q:有人把作品放在我的領地裡,我打不壞?** 元件是刻意打不壞的(免得被流彈、怪物、隨手一拳毀掉)。站在那裡跑 `/aase clear <半徑>`——你在領地內有建築權,所以清得掉;領地外別人的東西你動不了。他們的存檔不會被刪,可以重放。
 
-**⚠ 管理員注意:`/kill` 會穿透保護。** 原版盔甲座對 `/kill`(以及虛空)這類傷害直接被移除,不經過 `EntityDamageEvent`,本插件的保護攔不到。所以 `/kill @e[type=armor_stand]` 會**清光全服的作品**,連同玩家手放的原版盔甲座。要清元件請用 `/aase clear` 或 `/aase admin remove|purge`——它們只碰本插件標記過的東西。
+**⚠ 管理員注意:別用 `/kill` 處理作品。** `/kill` 對本插件元件的效果依伺服器版本而異:26.2 實測會穿透保護直接移除(`/kill @e[type=armor_stand]` 會清光全服作品,連同玩家手放的原版盔甲座),26.3 實測則被保護擋下、元件留著。不論哪種,元件被殺時都不會掉出裝備(展示用物品可能來自別人的分享)。要清元件請用 `/aase clear` 或 `/aase admin remove|purge`——它們只碰本插件標記過的東西。
 
 **Q:載入(load)後變兩份?** `load` 是「放新的一份」。要接續編輯既有作品用 `/aase edit`。不要的那份用 `/aase remove look` 收回。
 
@@ -433,7 +440,6 @@ aase.bypass.limit        略過數量上限 — 預設 OP
 - **視覺化時間軸 GUI**:拖曳關鍵影格、預覽刷桿,取代目前的 `/aase anim` 指令。
 - **姿勢間補間助手**:選兩個存好的姿勢,一鍵生成中間動畫。
 - **緩動(easing)**:linear 以外的 ease-in/out,讓動作更自然。
-- **短碼匯入(1.3.0 預計)**:分享碼文字太長放不進聊天欄,預計搭配網站 AASE Studio 提供短碼匯入。
 - **對外 API / 事件**:讓別的插件掛我們的存檔/放置事件。
 - **拖放式裝備 GUI**、**粒子/動畫視覺化編輯面板**。
 

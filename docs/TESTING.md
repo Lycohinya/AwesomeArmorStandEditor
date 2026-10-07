@@ -111,8 +111,8 @@ Paper 26.2 `runServer`,四次啟動,每次都 `AwesomeArmorStandEditor v1.0.0 en
       execute if entity @e[tag=ctrl]                          # 預期 Test failed(被炸掉)
       ```
       同樣的爆炸傷害打在本插件的元件上,元件應**存活**(`EntityProtectionListener` 生效)。
-      但 `kill @e[...]` 會讓元件**消失**:原版盔甲座對 `BYPASSES_INVULNERABILITY` 傷害直接被移除,不經 `EntityDamageEvent`,擋不掉。
-      **管理員別跑 `/kill @e[type=armor_stand]`,它會清光全服作品。**
+      `/kill` 依版本而異:26.2 實測會穿透移除;2026-10-08 在 Lecithin 26.3 實測 `minecraft:kill <uuid>` 回「Killed Armor Stand」但本插件的盔甲座仍在,同一台的原版盔甲座會被殺掉。兩種情況下都不應有裝備掉落。
+      收回本插件作品一律用 `/aase remove` / `/aase admin purge`。
 
 6. 效能:反覆放置/編輯時開 Spark 或 `/tps`,確認無掉 TPS(不應有 chunk 掃描)。
    MOVE 模式連續微調時,只有跨越方塊邊界的那一下會發探針事件;`/aase clear` 對同一格上的多個元件只探一次。若裝了 CoreProtect,確認不會被洗版。
@@ -165,7 +165,7 @@ Paper 26.2 `runServer`,四次啟動,每次都 `AwesomeArmorStandEditor v1.0.0 en
 ### 玩家視角(分享碼 P4)
 
 19. 有作品的玩家 `/aase share` → 聊天出現可點擊「點擊複製分享碼文字到剪貼簿」,複製到剪貼簿(一串 `AASE1:...`),下一行灰字提示「通常超過聊天欄 256 字的上限,請存成檔案保存或轉交,不要直接貼在聊天」;沒有元件時回「還沒有任何元件」。**把剪貼簿內容貼進聊天框會被截斷**(1.2.0 起文件不再說可以這樣分享)。
-20. 匯入(1.2.0 起不再用聊天貼碼測):短碼匯入隨 1.3.0 的 AASE Studio。目前只驗**較短的碼**能走通 `/aase import <碼> [新名稱]`(例如只有一個元件的作品)→ 在腳下放置同一份作品,回「已匯入並放置 …」;owner 變成匯入者、是新的 id(不影響原作者存檔)。長碼放不進聊天是已知限制,不是 bug。
+20. 匯入:短碼流程見下方「短碼分享與遠端匯入(1.3.0)」。分享碼文字只驗**較短的碼**能走通 `/aase import AASE1:… [新名稱]`(例如只有一個元件的作品)→ 在腳下放置同一份作品,回「已匯入並放置 …」;owner 變成匯入者、是新的 id(不影響原作者存檔)。長碼放不進聊天是已知限制,不是 bug。
 21. 亂碼防護:`/aase import 隨便亂打` → 回「分享碼無效或已損毀」,不應有紅字例外。
 22. 上限防護:把 `limits.per-player` 調小 → 匯入元件數超過上限的碼 → 被擋(「元件太多」)。
 
@@ -261,7 +261,7 @@ Paper 26.2 `runServer`,四次啟動,每次都 `AwesomeArmorStandEditor v1.0.0 en
 
 71. `/aase` → 「作品」那一列最右邊是**漏斗**「收回作品」(說明:列出身邊 8 格內你放的元件,確認後才會從世界收回,存檔保留);刪除(岩漿桶)位置沒變。點漏斗 → 視窗關閉、聊天出現「將收回 N 個元件」與確認按鈕,**世界上一個都不少**,直到點 `[確認收回]`。身邊沒有元件時 → 「半徑 8 格內沒有你放置的元件」。
 72. 有 session 時 `/aase delete 2` → 「已刪除展示物 #2」+ `[儲存]`,世界上 #2 消失;`/aase delete 99` → 「這個展示物已經不在作品裡，沒有刪除其他東西」;`/aase delete abc` → 「用法:/aase delete [元件編號]」;沒選取就 `/aase delete` → 「先右鍵點擊一個元件來選取」。
-73. **找不到實體**(只在測試服):session 中 C 用 `/kill` 殺掉其中一個盔甲座(原版盔甲座會被 `/kill` 直接移除),A 對該編號 `/aase delete <編號>`。
+73. **找不到實體**(只在測試服):A 在 session 中放好兩個元件後,傳送到 500 格外(讓作品所在區塊卸載),對其中一個編號 `/aase delete <編號>`。
     **應看到**:「世界中找不到 #N 的實體(可能在未載入區塊),模型已移除;之後看到殘留,用 /aase remove look 收回」+ `[儲存]` `[收回看著的作品]`;`/aase info` 的元件數少 1。
 74. 離線:A `/aase new 離線測試` → `/aase addstand` → 記兩格動畫 → `/aase anim play` → A 登出再登入。**應看到**:盔甲座仍在世界、不再動(姿勢回到模型);`/aase info` → 「你還沒有進行中的場景」;`/aase list` 沒有「離線測試」(沒存過)。站旁 `/aase remove look` 能收回。**沒有任何東西被存檔或被刪**。
 
@@ -270,6 +270,25 @@ Paper 26.2 `runServer`,四次啟動,每次都 `AwesomeArmorStandEditor v1.0.0 en
 75. 一般玩家(非 OP)`/aase remove look` 可用(`aase.use`);拿掉 `aase.use` → 「你沒有權限這麼做」。沒有 `aase.scene.save` 的玩家 `/aase close save` → 「你沒有權限這麼做」且 session 沒關。
 76. Tab:`/aase remove ` → `look` `here` `scene` `confirm` `cancel`;`/aase remove here ` → `8` `16` `32`;`/aase remove scene ` → 自己的存檔名;`/aase close ` → `save` `discard`;`/aase delete ` → 場景的元件編號。
 77. 若有 LycoLib:每次 `[確認收回]` 後稽核紀錄多一筆 `scene.remove`(件數、組數、範圍種類、座標);沒裝時安靜略過、不報錯。
+
+### 短碼分享與遠端匯入、schema v3(1.3.0 新增,雙視角)
+
+L1(自動,`./gradlew build`):`ContractFixturesTest`(6 份正向 golden 的 summon / mcfunction 完全相等、v3 寫回再讀匯出不變;19 份負向樣本第一個錯誤 pointer;`math/rotation.json` 與 `math/pose.json`)、`SceneCodecTest`(v2 ⇄ v3、v2 寫出時物品編碼與省略、無法以 v3 表達時退回 v2、去識別、元件字串正規化、code point 長度)、`RemoteLogicTest`(短碼 / 網址辨識、base-url 只收 https、邊讀邊計數的大小上限與逾時、cooldown、上傳回應只接受真短碼)。網站端驗證器以同一批負向樣本比對過 pointer(見回報)。
+
+管理員視角(先準備):`config.yml` 的 `import.remote.base-url` 指向可用的 AASE Studio(本機測試可用 `http://localhost:<port>`)。
+1. **存檔格式**:`/aase new t` → 加一個盔甲座、副手拿一把附魔鑽石劍 `/aase setequip mainhand` → `/aase save`。打開 `scenes/<UUID>/<id>.json`:`schemaVersion: 3`、姿勢是 `poseDeg`(度)、主手是 `{"id":"minecraft:diamond_sword","count":1,"components":"[...]","bukkit":"..."}`。記下 `components` 的實際內容(**待實機確認 `getAsComponentString()` 的格式**,應只有中括號部分)。
+2. **舊檔照讀**:把 1.2.0 存的舊檔(`schemaVersion: 2`)放回 `scenes/<UUID>/`,`/aase load <名稱>` 正常放置、裝備都在;`/aase save` 後變成 v3。
+3. **寫 v2**:`store.write-schema: 2` → `/aase reload` → `/aase save`,檔案回到 `schemaVersion: 2`(弧度、base64 字串)。測完改回 3。
+4. **只有 id 的物品**:手改存檔,把某格改成 `{"id":"minecraft:golden_helmet"}`(不帶 `bukkit`)和 `{"id":"minecraft:foo_sword"}` → `/aase load`:金頭盔有裝上;聊天出現「有 1 格物品沒裝上」與 `#1 主手 minecraft:foo_sword`。再試帶 components 的 `{"id":"minecraft:diamond_sword","components":"[enchantments={sharpness:5}]"}`,劍要有附魔光澤(**待實機確認 `createItemStack` 吃 components 的行為**)。
+5. **遠端關閉**:`import.remote.enabled: false` → `/aase reload` → `/aase import abc2345` 回「此伺服器未開放遠端匯入」;`/aase share` 直接給分享碼文字。主控台不應出現任何連線。
+
+玩家視角(遠端開啟):
+6. `/aase share` → 「正在上傳…」→「已上傳,短碼 xxxxxxx」+ `[點擊複製 /aase import xxxxxxx]` `[在 AASE Studio 開啟]`;開啟的網頁看到同一個場景,JSON 裡沒有 `owner` / `id` / `lastAnchor`。
+7. 另一個玩家(或自己 `close` 後換位置)`/aase import xxxxxxx 新名字` → 在腳下放置、回「已匯入並放置」;`/aase import https://…/s/XXXXXXX`(大寫、網址形式)同樣可以。
+8. 錯誤訊息各一次:不存在的短碼(「找不到短碼…」)、10 秒內連打兩次(「請等 N 秒再試」)、把 `base-url` 指到不回應的位址(逾時訊息,約 `timeout-seconds` 內出現)、讓網站回一份不合格的場景(列出最多 3 個 pointer)、把 `max-bytes` 調小到 1000 再匯入(「超過 …已停止下載」)。
+9. 下載中途登出:不應報錯、回來後沒有多放一份。
+10. 在別人的領地裡 `/aase import <短碼>`:被領地檢查擋下(與 `load` 相同)。
+11. **Lecithin / Folia legacy runtime**:第 7 步要在 Lecithin 上跑一次,確認回主執行緒的 `runTask` 能用(結果有出現、實體有生成)。
 
 ### 驗收層級標記
 
@@ -281,7 +300,8 @@ Paper 26.2 `runServer`,四次啟動,每次都 `AwesomeArmorStandEditor v1.0.0 en
 - 另有:裝備選單 GUI、`/aase info`、寫檔/共用資料的權限分界。
 - **0.2.0**:管理員強制移除工具 `/aase admin whois|remove|purge|confirm`(兩段式確認 + 稽核紀錄)。
 - **1.2.0**:玩家自助收回 `/aase remove`、`/aase close` 未存變更詢問與 `save|discard`、`/aase delete [編號]`、放置分組(placement)與孤兒、離線自動結束 session、工具收回手勢、面板「收回作品」。
-- 仍待做:粒子/動畫的**視覺化編輯面板 / 時間軸 GUI**(目前走指令 + 範本庫);分享碼短碼匯入(1.3.0,網站 AASE Studio)。
+- **1.3.0**:Scene schema v3(poseDeg、ItemRef、驗證與 JSON pointer 錯誤)、golden fixtures、`/aase import <短碼|網址>` 遠端匯入、`/aase share` 上傳取短碼。
+- 仍待做:粒子/動畫的**視覺化編輯面板 / 時間軸 GUI**(目前走指令 + 範本庫)。
 
 ## 已知限制
 
@@ -291,4 +311,6 @@ Paper 26.2 `runServer`,四次啟動,每次都 `AwesomeArmorStandEditor v1.0.0 en
 - 裝備 GUI 用「手持物品點格子」而非真拖放(刻意:全程 cancel 事件、只複製游標物品,確保玩家物品零消耗/零複製);`/aase setequip`(副手)舊路徑仍在。
 - 數量上限以記憶體計數,未載入區塊的既有元件不計入(不做世界掃描的取捨)。
 - 收回(`/aase remove`、`close discard`)只到已載入區塊。工具手勢只打得到一般盔甲座;Display 與 marker 盔甲座沒有碰撞箱,要用指令或面板。
-- 分享碼文字通常超過聊天欄 256 字上限,貼不進聊天框;短碼匯入隨 1.3.0。
+- 分享碼文字超過聊天欄 256 字上限,貼不進聊天框;請用短碼(`/aase share`)。
+- 匯出(summon / mcfunction)仍只帶物品 id 與數量,`components` 不匯出(與網站一致)。
+- 物品 base64 經白名單反序列化,內容仍可偽造;展示品的物品不得以任何方式回到玩家手上(見 DESIGN §3)。收回一律用 `/aase remove`;本插件實體死亡時不掉落裝備,擋住 `/kill` 能穿透的版本與其他插件直接殺實體的情況。

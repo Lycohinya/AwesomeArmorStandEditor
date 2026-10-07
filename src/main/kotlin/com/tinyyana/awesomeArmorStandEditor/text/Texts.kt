@@ -94,6 +94,13 @@ class Texts private constructor(private val audiences: BukkitAudiences) {
 
     fun legacyOf(component: Component): String = LegacyComponentSerializer.legacySection().serialize(component)
 
+    /**
+     * Escapes MiniMessage tags in a placeholder value that came from outside (an imported scene's name,
+     * a remote server's error text): placeholders are substituted into the MiniMessage source, so an
+     * unescaped `<click:...>` in such a value would become a live tag.
+     */
+    fun escape(text: String): String = mm.escapeTags(text)
+
     private fun render(key: String, placeholders: Array<out Pair<String, String>>): Component {
         var text = messages[key] ?: return mm.deserialize("<red>$key")
         for ((k, v) in placeholders) text = text.replace("{$k}", v)

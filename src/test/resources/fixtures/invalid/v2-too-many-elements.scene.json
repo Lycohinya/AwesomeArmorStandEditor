@@ -1,0 +1,1815 @@
+{
+  "schemaVersion": 2,
+  "name": "Bad",
+  "elements": [
+    {
+      "type": "armor_stand",
+      "localId": 1,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 2,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 3,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 4,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 5,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 6,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 7,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 8,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 9,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 10,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 11,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 12,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 13,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 14,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 15,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 16,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 17,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 18,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 19,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 20,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 21,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 22,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 23,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 24,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 25,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 26,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 27,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 28,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 29,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 30,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 31,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 32,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 33,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 34,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 35,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 36,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 37,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 38,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 39,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 40,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 41,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 42,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 43,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 44,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 45,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 46,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 47,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 48,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 49,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 50,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 51,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 52,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 53,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 54,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 55,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 56,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 57,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 58,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 59,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 60,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 61,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 62,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 63,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 64,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 65,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 66,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 67,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 68,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 69,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 70,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 71,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 72,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 73,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 74,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 75,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 76,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 77,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 78,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 79,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 80,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 81,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 82,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 83,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 84,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 85,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 86,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 87,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 88,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 89,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 90,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 91,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 92,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 93,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 94,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 95,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 96,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 97,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 98,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 99,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 100,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 101,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 102,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 103,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 104,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 105,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 106,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 107,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 108,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 109,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 110,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 111,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 112,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 113,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 114,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 115,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 116,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 117,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 118,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 119,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 120,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 121,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 122,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 123,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 124,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 125,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 126,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 127,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 128,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 129,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 130,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 131,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 132,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 133,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 134,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 135,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 136,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 137,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 138,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 139,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 140,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 141,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 142,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 143,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 144,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 145,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 146,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 147,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 148,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 149,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 150,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 151,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 152,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 153,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 154,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 155,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 156,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 157,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 158,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 159,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 160,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 161,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 162,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 163,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 164,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 165,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 166,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 167,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 168,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 169,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 170,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 171,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 172,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 173,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 174,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 175,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 176,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 177,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 178,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 179,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 180,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 181,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 182,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 183,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 184,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 185,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 186,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 187,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 188,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 189,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 190,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 191,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 192,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 193,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 194,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 195,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 196,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 197,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 198,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 199,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 200,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "armor_stand",
+      "localId": 201,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    }
+  ]
+}

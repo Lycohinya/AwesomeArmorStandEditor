@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 3,
+  "name": "Bad",
+  "elements": [
+    {
+      "type": "display",
+      "localId": 1,
+      "offset": [
+        0,
+        0,
+        0
+      ],
+      "kind": "BLOCK",
+      "block": "minecraft:stone",
+      "transform": {
+        "rotationDeg": [
+          0,
+          90,
+          0
+        ],
+        "leftRotation": [
+          0,
+          0,
+          0,
+          1
+        ]
+      }
+    }
+  ]
+}

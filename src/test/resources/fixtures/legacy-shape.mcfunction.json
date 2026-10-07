@@ -1,0 +1,5 @@
+{
+  "data/aase/function/summon.mcfunction": "# Summon scene: Legacy shapes\nsummon minecraft:armor_stand ~0 ~0 ~0 {Small:0b,NoBasePlate:1b,ShowArms:1b,Marker:0b,Invisible:0b,NoGravity:1b,Glowing:0b,Rotation:[30f,0f],Pose:{Head:[28.6479f,0f,0f],Body:[0f,5.7296f,0f],LeftArm:[-17.1887f,0f,-11.4592f],RightArm:[-68.7549f,22.9183f,17.1887f],LeftLeg:[0f,0f,-2.8648f],RightLeg:[0f,0f,2.8648f]},Tags:[\"aase_5e4f3a2b_1\"]}\nsummon minecraft:block_display ~0 ~1 ~1 {transformation:{translation:[-0.5f,0f,-0.5f],left_rotation:[0f,0f,0f,1f],scale:[1f,1f,1f],right_rotation:[0f,0.1736f,0f,0.9848f]},billboard:\"fixed\",view_range:1f,block_state:{Name:\"minecraft:stone_bricks\"},Tags:[\"aase_5e4f3a2b_2\"]}\nsummon minecraft:text_display ~0 ~2 ~1 {transformation:{translation:[0f,0f,0f],left_rotation:[0f,0f,0f,1f],scale:[2f,2f,2f],right_rotation:[0f,0f,0f,1f]},billboard:\"fixed\",view_range:1f,text:\"Legacy payload text\",Tags:[\"aase_5e4f3a2b_3\"]}\n",
+  "pack.mcmeta": "{\"pack\":{\"pack_format\":57,\"description\":\"AASE export: Legacy shapes\"}}\n",
+  "README.txt": "README"
+}

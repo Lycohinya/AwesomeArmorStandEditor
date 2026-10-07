@@ -3,10 +3,12 @@ package com.tinyyana.awesomeArmorStandEditor.menu
 import com.tinyyana.awesomeArmorStandEditor.AwesomeArmorStandEditorPlugin
 import com.tinyyana.awesomeArmorStandEditor.model.ArmorStandElement
 import com.tinyyana.awesomeArmorStandEditor.model.DisplayKind
+import com.tinyyana.awesomeArmorStandEditor.sched.PlayerTasks
 import com.tinyyana.awesomeArmorStandEditor.session.EditMode
 import com.tinyyana.awesomeArmorStandEditor.edit.Axis
 import com.tinyyana.awesomeArmorStandEditor.edit.BodyPart
-import com.tinyyana.awesomeArmorStandEditor.store.ItemCodec
+import com.tinyyana.awesomeArmorStandEditor.model.ItemRef
+import com.tinyyana.awesomeArmorStandEditor.store.ItemResolver
 import org.bukkit.Bukkit
 import org.bukkit.Material
 import org.bukkit.entity.Player
@@ -65,7 +67,7 @@ class ControlPanel(private val plugin: AwesomeArmorStandEditorPlugin) : Listener
             // The GUI must enforce the same permissions the command path does — a button that calls
             // the controller directly would otherwise bypass gated actions (e.g. disk-writing export).
             SLOT_ADD_STAND -> guarded(player, "aase.create.armorstand") { controller.addStand(player) }
-            SLOT_ADD_ITEM -> guarded(player, "aase.create.display") { controller.addDisplay(player, DisplayKind.ITEM, itemPayload(player)) }
+            SLOT_ADD_ITEM -> guarded(player, "aase.create.display") { controller.addDisplay(player, DisplayKind.ITEM, "", offhandItem(player)) }
             SLOT_ADD_BLOCK -> guarded(player, "aase.create.display") { controller.addDisplay(player, DisplayKind.BLOCK, "minecraft:stone") }
             SLOT_ADD_TEXT -> guarded(player, "aase.create.display") { controller.addDisplay(player, DisplayKind.TEXT, texts.label("display.default-text")) }
 
@@ -92,7 +94,7 @@ class ControlPanel(private val plugin: AwesomeArmorStandEditorPlugin) : Listener
             SLOT_GUIDE -> {
                 player.closeInventory()
                 // Defer a tick so the book opens cleanly after the inventory closes.
-                plugin.server.scheduler.runTask(plugin, Runnable { plugin.guideBook.open(player) })
+                PlayerTasks.run(plugin, player) { plugin.guideBook.open(it) }
                 return
             }
             SLOT_PRESETS -> { plugin.gallery.open(player); return }
@@ -154,9 +156,9 @@ class ControlPanel(private val plugin: AwesomeArmorStandEditorPlugin) : Listener
         plugin.sessions.get(player.uniqueId)?.let { it.part = part; controller.readout(player, it) }
     }
 
-    private fun itemPayload(player: Player): String {
+    private fun offhandItem(player: Player): ItemRef {
         val off = player.inventory.itemInOffHand
-        return ItemCodec.encode(if (off.type.isAir) ItemStack(Material.STONE) else off)
+        return ItemResolver.toRef(if (off.type.isAir) ItemStack(Material.STONE) else off)
     }
 
     private fun populate(player: Player, inv: Inventory) {
@@ -231,7 +233,7 @@ class ControlPanel(private val plugin: AwesomeArmorStandEditorPlugin) : Listener
 
         // --- Row 4: scene management ---
         inv.setItem(SLOT_INFO, icon(Material.NAME_TAG, "panel.info",
-            "name" to (session?.scene?.name ?: "-"),
+            "name" to plugin.texts.escape(session?.scene?.name ?: "-"),
             "sel" to (selected?.let { "#${it.localId}" } ?: "-")))
         inv.setItem(SLOT_PRESETS, icon(Material.PAINTING, "panel.presets"))
         inv.setItem(SLOT_SAVE, icon(Material.WRITABLE_BOOK, "panel.save"))

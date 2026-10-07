@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 4,
+  "name": "Bad",
+  "elements": [
+    {
+      "type": "armor_stand",
+      "localId": 1,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    }
+  ]
+}

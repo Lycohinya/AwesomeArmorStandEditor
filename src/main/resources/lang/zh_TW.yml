@@ -22,7 +22,7 @@ usage:
   export: "<gray>用法:<aqua>/aase export <command|function>"
   pose: "<gray>用法:<aqua>/aase pose <範本id></aqua> 套用,或 <aqua>/aase pose save <id> [名稱]</aqua> 存成自己的範本"
   fx: "<gray>用法:<aqua>/aase fx <特效id></aqua>(用 <aqua>/aase presets</aqua> 看清單)"
-  import: "<gray>用法:<aqua>/aase import <分享碼> [新名稱]</aqua>(分享碼用 <aqua>/aase share</aqua> 產生)"
+  import: "<gray>用法:<aqua>/aase import <短碼|網址|AASE1:…> [新名稱]</aqua>(短碼用 <aqua>/aase share</aqua> 或 AASE Studio 取得)"
   select: "<gray>用法:<aqua>/aase select <元件編號|next|prev>"
   admin: "<gray>用法:<aqua>/aase admin <whois|remove|purge <半徑> [玩家]|confirm>"
   clear: "<gray>用法:<aqua>/aase clear <半徑></aqua>(清掉別人放在你有建築權的地方的元件)"
@@ -69,6 +69,7 @@ scene:
   saved: "<green>已儲存 <white>{name}</white>(共 {count} 個元件)"
   loaded: "<green>已放置 <white>{name}</white>(共 {count} 個元件)"
   not-found: "<red>找不到名為 <white>{name}</white> 的場景"
+  name-too-long: "<red>場景名稱太長,最多 {max} 個字"
 
 add:
   stand: "<green>已新增盔甲座 <white>#{id}"
@@ -177,11 +178,48 @@ export:
 
 share:
   click: "<yellow>[點擊複製分享碼文字到剪貼簿]"
-  hint: "<gray>分享碼文字通常超過聊天欄 256 字的上限,請存成檔案保存或轉交,不要直接貼在聊天"
+  hint: "<gray>分享碼文字超過聊天欄 256 字的上限,請貼到 AASE Studio 或存成檔案轉交,不要直接貼在聊天"
+  uploading: "<gray>正在上傳到 AASE Studio 取得短碼"
+  uploaded: "<green>已上傳,短碼 <white>{code}</white>,別人輸入 <aqua>/aase import {code}</aqua> 就能匯入"
+  copy-import: "<yellow>[點擊複製 {command}]"
+  open-url: "<aqua>[在 AASE Studio 開啟]"
+  upload-rate-limited: "<yellow>上傳太頻繁,AASE Studio 暫時不收,先改給你分享碼文字"
+  upload-too-large: "<yellow>作品太大,AASE Studio 不收,先改給你分享碼文字"
+  upload-rejected: "<yellow>AASE Studio 不接受這份作品的格式,先改給你分享碼文字"
+  upload-timeout: "<yellow>連線 AASE Studio 逾時,先改給你分享碼文字"
+  upload-failed: "<yellow>上傳失敗({reason}),先改給你分享碼文字"
   import-bad: "<red>分享碼無效或已損毀,請確認完整複製"
   import-too-big: "<red>這份作品的元件太多(超過你的上限 {max}),無法匯入"
   imported: "<green>已匯入並放置 <white>{name}</white>(共 {count} 個元件),記得 <aqua>/aase save</aqua> 存起來"
   place-cancelled: "<red>這裡不允許放置作品"
+
+remote:
+  disabled: "<red>此伺服器未開放遠端匯入"
+  fetching: "<gray>正在從 AASE Studio 下載短碼 <white>{code}</white> 的作品"
+  cooldown: "<yellow>請等 {seconds} 秒再試"
+  busy: "<yellow>伺服器正在處理其他人的下載,請稍後再試"
+  not-found: "<red>找不到短碼 <white>{code}</white> 的作品,可能打錯或已過期"
+  timeout: "<red>AASE Studio 沒有回應(連線逾時),請稍後再試"
+  too-large: "<red>作品檔案超過 {max},已停止下載"
+  not-json: "<red>AASE Studio 回傳的不是作品資料"
+  invalid: "<red>這份作品格式不正確,無法匯入(共 {count} 個問題):"
+  invalid-line: "<gray>· <white>{pointer}</white> {message}"
+  http-error: "<red>AASE Studio 回應錯誤(HTTP {status}),請稍後再試"
+  failed: "<red>連不上 AASE Studio({reason})"
+
+item:
+  unresolved-header: "<yellow>有 {count} 格物品沒裝上(這台伺服器認不得):"
+  unresolved-line: "<gray>#{id} {slot} <white>{item}"
+  unresolved-more: "<gray>還有 {count} 格沒列出"
+  legacy-data: "舊版物品資料"
+  slot:
+    head: "頭部"
+    chest: "身體"
+    legs: "腿部"
+    feet: "腳部"
+    mainhand: "主手"
+    offhand: "副手"
+    item: "展示物品"
 
 info:
   header: "<gold>◆ 場景資訊:<white>{name}"
@@ -285,8 +323,8 @@ help:
   list: "<aqua>/aase list <gray>列出你的場景"
   info: "<aqua>/aase info <gray>顯示目前場景資訊"
   export: "<aqua>/aase export command <gray>匯出 summon 指令"
-  share: "<aqua>/aase share <gray>產生分享碼文字(複製後存成檔案)"
-  import: "<aqua>/aase import <碼> [名稱] <gray>匯入別人的分享碼"
+  share: "<aqua>/aase share <gray>上傳取得短碼(未開放時給分享碼文字)"
+  import: "<aqua>/aase import <短碼|網址|AASE1:…> [名稱] <gray>匯入別人分享的作品"
   remove: "<aqua>/aase remove look|here|scene <gray>收回自己放在世界裡的作品(存檔保留)"
   close: "<aqua>/aase close <gray>結束編輯(作品保留;有未存變更會先問)"
 
@@ -544,10 +582,11 @@ guide:
       <dark_blue>/aase list<black> 我的清單
       <dark_blue>/aase info<black> 場景資訊
 
-      <black>分享碼文字:
+      <black>分享:
       <dark_blue>/aase share
-      <black>太長貼不進聊天,
-      存成檔案再轉交
+      <black>取得短碼,別人用
+      <dark_blue>/aase import 短碼
+      <black>就能匯入
     - |-
       <dark_gray>⑨ 匯出(建築師)
 

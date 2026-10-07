@@ -26,7 +26,8 @@ class PresetLibrary private constructor() {
     fun fx(id: String): FxPreset? = fx.find { it.id.equals(id, ignoreCase = true) }
 
     fun reload(plugin: JavaPlugin) {
-        plugin.saveResource("presets.yml", false)
+        // saveResource() warns on every boot when the file already exists, so ask first.
+        if (!File(plugin.dataFolder, "presets.yml").exists()) plugin.saveResource("presets.yml", false)
         val cfg = YamlConfiguration.loadConfiguration(File(plugin.dataFolder, "presets.yml"))
         poses = cfg.getMapList("poses").mapNotNull { parsePose(it) }
         fx = cfg.getMapList("fx").mapNotNull { parseFx(it) }

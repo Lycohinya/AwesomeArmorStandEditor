@@ -1,0 +1,367 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lyco-aase.tinyyana.com/schema/scene.v3.schema.json",
+  "title": "AASE Scene v3",
+  "description": "A scene for AwesomeArmorStandEditor (AASE): a set of armor stands and display entities (item / block / text), positioned relative to a scene origin, optionally with particle emitters and a keyframe animation. Angles use DEGREES in poseDeg and rotationDeg. Items are {\"id\": \"minecraft:diamond_sword\"}. schemaVersion 2 (the older radian/base64 format written by plugin 1.0-1.2) is also accepted on input. Limits: offsets and translations are within -256..256 blocks, scale -64..64 (negative mirrors), angles (yaw, poseDeg, rotationDeg) within -3600..3600, every number must be finite, and JSON nesting is at most 64 levels. Validation layering: nesting depth and finite numbers first, then this schema, then semantic checks (unique localId, a display must carry its content, animation tracks must point at existing elements); error pointers are RFC 6901 JSON pointers, listed in document order (depth-first), and an unknown property is reported at the property itself.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "name", "elements"],
+  "properties": {
+    "schemaVersion": {
+      "description": "Use 3. The plugin also reads 2 (legacy: pose in radians, items as Bukkit base64, display payload string).",
+      "enum": [2, 3]
+    },
+    "name": {
+      "description": "Scene name, 1 to 64 characters.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "id": {
+      "description": "Scene id. Optional: the website omits it and the plugin resets it on import.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "owner": {
+      "description": "Owner UUID. Optional: the plugin resets it on import.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "lastAnchor": {
+      "description": "Where the scene was last placed. Optional: the plugin resets it on import.",
+      "$ref": "#/$defs/Anchor"
+    },
+    "elements": {
+      "description": "The armor stands and displays in the scene, at most 200. Each element has a unique integer localId.",
+      "type": "array",
+      "maxItems": 200,
+      "items": { "$ref": "#/$defs/Element" }
+    },
+    "emitters": {
+      "description": "Optional particle emitters.",
+      "type": "array",
+      "items": { "$ref": "#/$defs/Emitter" }
+    },
+    "animation": {
+      "description": "Optional keyframe animation over the scene's elements.",
+      "$ref": "#/$defs/Animation"
+    }
+  },
+  "$defs": {
+    "Vec3": {
+      "description": "[x, y, z]",
+      "type": "array",
+      "items": { "type": "number" },
+      "minItems": 3,
+      "maxItems": 3
+    },
+    "OffsetVec3": {
+      "description": "[x, y, z] in blocks, each within -256..256.",
+      "type": "array",
+      "items": { "type": "number", "minimum": -256, "maximum": 256 },
+      "minItems": 3,
+      "maxItems": 3
+    },
+    "ScaleVec3": {
+      "description": "[x, y, z] scale factors, each within -64..64 (negative mirrors).",
+      "type": "array",
+      "items": { "type": "number", "minimum": -64, "maximum": 64 },
+      "minItems": 3,
+      "maxItems": 3
+    },
+    "AngleVec3": {
+      "description": "[x, y, z] angles, each within -3600..3600.",
+      "type": "array",
+      "items": { "type": "number", "minimum": -3600, "maximum": 3600 },
+      "minItems": 3,
+      "maxItems": 3
+    },
+    "Quat": {
+      "description": "Quaternion [x, y, z, w]. Identity is [0, 0, 0, 1].",
+      "type": "array",
+      "items": { "type": "number" },
+      "minItems": 4,
+      "maxItems": 4
+    },
+    "Anchor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["world", "x", "y", "z"],
+      "properties": {
+        "world": { "type": "string" },
+        "x": { "type": "number" },
+        "y": { "type": "number" },
+        "z": { "type": "number" }
+      }
+    },
+    "ItemRef": {
+      "description": "An item. Example: {\"id\": \"minecraft:diamond_sword\"}. components uses the same syntax as /give, for example \"[enchantments={sharpness:5}]\". bukkit is the exact Bukkit-serialized form written by the plugin; drop it whenever id or components are edited.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id"],
+      "properties": {
+        "id": {
+          "description": "Namespaced item id.",
+          "type": "string",
+          "pattern": "^[a-z0-9_.-]+:[a-z0-9_./-]+$"
+        },
+        "count": { "description": "Stack size, default 1.", "type": "integer", "minimum": 1, "maximum": 99 },
+        "components": {
+          "description": "Item components in /give syntax; must start with [.",
+          "type": "string",
+          "pattern": "^\\["
+        },
+        "bukkit": {
+          "description": "Plugin-written exact base64; takes priority in the plugin when present.",
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "ItemSlot": {
+      "description": "An ItemRef, or a Bukkit base64 string (legacy v2 form).",
+      "if": { "type": "string" },
+      "then": { "type": "string", "minLength": 1 },
+      "else": { "$ref": "#/$defs/ItemRef" }
+    },
+    "PoseDeg": {
+      "description": "Armor stand pose in DEGREES, identical to the Pose NBT of /summon. Each body part is [x, y, z]. Missing parts are [0, 0, 0].",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "head": { "$ref": "#/$defs/AngleVec3" },
+        "body": { "$ref": "#/$defs/AngleVec3" },
+        "leftArm": { "$ref": "#/$defs/AngleVec3" },
+        "rightArm": { "$ref": "#/$defs/AngleVec3" },
+        "leftLeg": { "$ref": "#/$defs/AngleVec3" },
+        "rightLeg": { "$ref": "#/$defs/AngleVec3" }
+      }
+    },
+    "PoseRad": {
+      "description": "Legacy armor stand pose in RADIANS (v2). All six parts are required here. Mutually exclusive with poseDeg.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["head", "body", "leftArm", "rightArm", "leftLeg", "rightLeg"],
+      "properties": {
+        "head": { "$ref": "#/$defs/AngleVec3" },
+        "body": { "$ref": "#/$defs/AngleVec3" },
+        "leftArm": { "$ref": "#/$defs/AngleVec3" },
+        "rightArm": { "$ref": "#/$defs/AngleVec3" },
+        "leftLeg": { "$ref": "#/$defs/AngleVec3" },
+        "rightLeg": { "$ref": "#/$defs/AngleVec3" }
+      }
+    },
+    "Equipment": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "head": { "$ref": "#/$defs/ItemSlot" },
+        "chest": { "$ref": "#/$defs/ItemSlot" },
+        "legs": { "$ref": "#/$defs/ItemSlot" },
+        "feet": { "$ref": "#/$defs/ItemSlot" },
+        "mainHand": { "$ref": "#/$defs/ItemSlot" },
+        "offHand": { "$ref": "#/$defs/ItemSlot" }
+      }
+    },
+    "Flags": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "small": { "type": "boolean", "description": "Default false." },
+        "invisible": { "type": "boolean", "description": "Default false." },
+        "noBasePlate": { "type": "boolean", "description": "Default false." },
+        "noGravity": { "type": "boolean", "description": "Default true." },
+        "arms": { "type": "boolean", "description": "Show arms. Default true." },
+        "marker": { "type": "boolean", "description": "No hitbox. Default false." },
+        "glowing": { "type": "boolean", "description": "Default false." }
+      }
+    },
+    "ArmorStand": {
+      "description": "An armor stand. offset is [x, y, z] relative to the scene origin; yaw is body rotation in degrees.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "localId", "offset"],
+      "properties": {
+        "type": { "const": "armor_stand" },
+        "localId": {
+          "description": "Unique integer id within the scene, starting at 1.",
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 2147483647
+        },
+        "offset": { "$ref": "#/$defs/OffsetVec3" },
+        "yaw": { "description": "Degrees, default 0.", "type": "number", "minimum": -3600, "maximum": 3600 },
+        "poseDeg": { "$ref": "#/$defs/PoseDeg" },
+        "pose": { "$ref": "#/$defs/PoseRad" },
+        "equipment": { "$ref": "#/$defs/Equipment" },
+        "flags": { "$ref": "#/$defs/Flags" },
+        "customName": {
+          "description": "MiniMessage text, at most 256 characters.",
+          "type": "string",
+          "maxLength": 256
+        }
+      },
+      "dependentSchemas": {
+        "pose": {
+          "not": { "type": "object", "required": ["poseDeg"] },
+          "$comment": "pose and poseDeg are mutually exclusive; use poseDeg"
+        }
+      }
+    },
+    "Transform": {
+      "description": "Display transformation. translation default [0,0,0], scale default [1,1,1]. Rotate with rotationDeg (Euler degrees, order XYZ) or with a raw leftRotation quaternion, not both.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "translation": { "$ref": "#/$defs/OffsetVec3" },
+        "scale": { "$ref": "#/$defs/ScaleVec3" },
+        "rotationDeg": { "$ref": "#/$defs/AngleVec3" },
+        "leftRotation": { "$ref": "#/$defs/Quat" },
+        "rightRotation": { "$ref": "#/$defs/Quat" }
+      },
+      "dependentSchemas": {
+        "rotationDeg": {
+          "not": { "type": "object", "required": ["leftRotation"] },
+          "$comment": "rotationDeg and leftRotation are mutually exclusive"
+        }
+      }
+    },
+    "Display": {
+      "description": "A display entity. kind ITEM needs item, BLOCK needs block, TEXT needs text. payload is the legacy v2 content string and is mutually exclusive with item, block and text.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "localId", "offset", "kind"],
+      "properties": {
+        "type": { "const": "display" },
+        "localId": {
+          "description": "Unique integer id within the scene, starting at 1.",
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 2147483647
+        },
+        "offset": { "$ref": "#/$defs/OffsetVec3" },
+        "yaw": { "description": "Degrees, default 0.", "type": "number", "minimum": -3600, "maximum": 3600 },
+        "kind": { "enum": ["ITEM", "BLOCK", "TEXT"] },
+        "transform": { "$ref": "#/$defs/Transform" },
+        "item": { "$ref": "#/$defs/ItemRef" },
+        "block": {
+          "description": "Block data, e.g. \"minecraft:oak_stairs[facing=east]\".",
+          "type": "string",
+          "pattern": "^(?:[a-z0-9_.-]+:)?[a-z0-9_./-]+(?:\\[[^\\]]*\\])?$"
+        },
+        "text": {
+          "description": "MiniMessage text, at most 1024 characters.",
+          "type": "string",
+          "maxLength": 1024
+        },
+        "payload": {
+          "description": "Legacy v2 content: ITEM = Bukkit base64, BLOCK = block data, TEXT = MiniMessage.",
+          "type": "string"
+        },
+        "billboard": { "enum": ["FIXED", "VERTICAL", "HORIZONTAL", "CENTER"] },
+        "brightnessBlock": { "type": "integer", "minimum": 0, "maximum": 15 },
+        "brightnessSky": { "type": "integer", "minimum": 0, "maximum": 15 },
+        "glowColor": {
+          "description": "ARGB as a signed 32-bit integer.",
+          "type": "integer",
+          "minimum": -2147483648,
+          "maximum": 2147483647
+        },
+        "viewRange": { "type": "number", "exclusiveMinimum": 0 }
+      },
+      "dependentSchemas": {
+        "payload": {
+          "not": {
+            "type": "object",
+            "anyOf": [{ "required": ["item"] }, { "required": ["block"] }, { "required": ["text"] }]
+          },
+          "$comment": "payload is the legacy form and cannot be combined with item, block or text"
+        }
+      }
+    },
+    "Element": {
+      "description": "An armor_stand or a display, chosen by its type.",
+      "if": {
+        "type": "object",
+        "required": ["type"],
+        "properties": { "type": { "const": "armor_stand" } }
+      },
+      "then": { "$ref": "#/$defs/ArmorStand" },
+      "else": {
+        "if": { "type": "object", "required": ["type"], "properties": { "type": { "const": "display" } } },
+        "then": { "$ref": "#/$defs/Display" },
+        "else": {
+          "type": "object",
+          "required": ["type"],
+          "properties": { "type": { "enum": ["armor_stand", "display"] } }
+        }
+      }
+    },
+    "Emitter": {
+      "description": "A particle emitter. particle is a Bukkit Particle name such as HEART or FLAME.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id"],
+      "properties": {
+        "id": { "type": "integer", "minimum": 1, "maximum": 2147483647 },
+        "particle": { "type": "string", "minLength": 1 },
+        "offset": { "$ref": "#/$defs/OffsetVec3" },
+        "count": { "type": "integer", "minimum": 0, "maximum": 1000 },
+        "spread": { "$ref": "#/$defs/Vec3" },
+        "speed": { "type": "number" },
+        "rateTicks": { "description": "Emit every N ticks.", "type": "integer", "minimum": 1, "maximum": 1200 },
+        "dustColor": {
+          "description": "RGB integer, used by DUST particles.",
+          "type": "integer",
+          "minimum": -2147483648,
+          "maximum": 2147483647
+        }
+      }
+    },
+    "KeyframePose": { "description": "Armor stand pose in RADIANS (all six parts).", "$ref": "#/$defs/PoseRad" },
+    "KeyframeTransform": {
+      "description": "Display transformation as raw quaternions (all four fields).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["translation", "leftRotation", "scale", "rightRotation"],
+      "properties": {
+        "translation": { "$ref": "#/$defs/OffsetVec3" },
+        "leftRotation": { "$ref": "#/$defs/Quat" },
+        "scale": { "$ref": "#/$defs/ScaleVec3" },
+        "rightRotation": { "$ref": "#/$defs/Quat" }
+      }
+    },
+    "Keyframe": {
+      "description": "Target state of one element at a tick. Armor stand tracks use pose, display tracks use transform; offset applies to both.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["tick"],
+      "properties": {
+        "tick": { "type": "integer", "minimum": 0, "maximum": 72000 },
+        "pose": { "$ref": "#/$defs/KeyframePose" },
+        "transform": { "$ref": "#/$defs/KeyframeTransform" },
+        "offset": { "$ref": "#/$defs/OffsetVec3" }
+      }
+    },
+    "Track": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["elementLocalId"],
+      "properties": {
+        "elementLocalId": { "type": "integer", "minimum": 1, "maximum": 2147483647 },
+        "keyframes": { "type": "array", "items": { "$ref": "#/$defs/Keyframe" } }
+      }
+    },
+    "Animation": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "lengthTicks": { "description": "Default 40.", "type": "integer", "minimum": 1, "maximum": 72000 },
+        "loop": { "description": "Default true.", "type": "boolean" },
+        "tracks": { "type": "array", "items": { "$ref": "#/$defs/Track" } }
+      }
+    }
+  }
+}

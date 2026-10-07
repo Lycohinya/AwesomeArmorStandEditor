@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 3,
+  "name": "Bad",
+  "elements": [
+    {
+      "type": "zombie",
+      "localId": 1,
+      "offset": [
+        0,
+        0,
+        0
+      ]
+    }
+  ]
+}

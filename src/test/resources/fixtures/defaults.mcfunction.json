@@ -1,0 +1,5 @@
+{
+  "data/aase/function/summon.mcfunction": "# Summon scene: Defaults 預設\nsummon minecraft:armor_stand ~0 ~0 ~0 {Small:0b,NoBasePlate:0b,ShowArms:1b,Marker:0b,Invisible:0b,NoGravity:1b,Glowing:0b,Rotation:[0f,0f],Pose:{Head:[0f,0f,0f],Body:[0f,0f,0f],LeftArm:[0f,0f,0f],RightArm:[0f,0f,0f],LeftLeg:[0f,0f,0f],RightLeg:[0f,0f,0f]},Tags:[\"aase_1d2e3f4a_5\"]}\nsummon minecraft:text_display ~0.5 ~0 ~0 {transformation:{translation:[0f,0f,0f],left_rotation:[0f,0f,0f,1f],scale:[1f,1f,1f],right_rotation:[0f,0f,0f,1f]},billboard:\"fixed\",view_range:1f,text:\"哈囉\",Tags:[\"aase_1d2e3f4a_7\"]}\nsummon minecraft:item_display ~0 ~0 ~0.5 {transformation:{translation:[0f,0f,0f],left_rotation:[0f,0f,0f,1f],scale:[1f,1f,1f],right_rotation:[0f,0f,0f,1f]},billboard:\"fixed\",view_range:1f,item:{id:\"minecraft:apple\",count:1},Tags:[\"aase_1d2e3f4a_9\"]}\n",
+  "pack.mcmeta": "{\"pack\":{\"pack_format\":57,\"description\":\"AASE export: Defaults 預設\"}}\n",
+  "README.txt": "README"
+}

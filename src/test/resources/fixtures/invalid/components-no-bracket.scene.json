@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 3,
+  "name": "Bad",
+  "elements": [
+    {
+      "type": "armor_stand",
+      "localId": 1,
+      "offset": [
+        0,
+        0,
+        0
+      ],
+      "equipment": {
+        "head": {
+          "id": "minecraft:iron_helmet",
+          "components": "enchantments={protection:1}"
+        }
+      }
+    }
+  ]
+}

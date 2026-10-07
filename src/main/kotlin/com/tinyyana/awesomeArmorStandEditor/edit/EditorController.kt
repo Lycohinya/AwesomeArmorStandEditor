@@ -20,7 +20,12 @@ import com.tinyyana.awesomeArmorStandEditor.recall.CloseDecision
 import com.tinyyana.awesomeArmorStandEditor.session.EditMode
 import com.tinyyana.awesomeArmorStandEditor.session.EditSession
 import com.tinyyana.awesomeArmorStandEditor.session.UndoSnapshot
-import com.tinyyana.awesomeArmorStandEditor.store.ItemCodec
+import com.tinyyana.awesomeArmorStandEditor.model.ItemRef
+import com.tinyyana.awesomeArmorStandEditor.store.ItemResolver
+import com.tinyyana.awesomeArmorStandEditor.placement.PlacementService
+import com.tinyyana.awesomeArmorStandEditor.remote.ShortCodes
+import com.tinyyana.awesomeArmorStandEditor.remote.StudioClient
+import com.tinyyana.awesomeArmorStandEditor.store.SceneCodec
 import com.tinyyana.awesomeArmorStandEditor.store.ShareCode
 import net.kyori.adventure.text.event.ClickEvent
 import org.bukkit.Location
@@ -41,6 +46,10 @@ import java.util.UUID
  */
 class EditorController(private val plugin: AwesomeArmorStandEditorPlugin) {
 
+    private companion object {
+        const val MAX_SCENE_NAME = 64
+    }
+
     private val armorStandModes = listOf(EditMode.POSE, EditMode.MOVE)
     private val displayModes = listOf(EditMode.TRANSLATE, EditMode.ROTATE, EditMode.SCALE, EditMode.MOVE)
 
@@ -54,13 +63,15 @@ class EditorController(private val plugin: AwesomeArmorStandEditorPlugin) {
         finishAdd(player, session, element, EditMode.POSE, "add.stand")
     }
 
-    fun addDisplay(player: Player, kind: DisplayKind, payload: String) {
+    /** [payload] is the BLOCK/TEXT content; [item] the ITEM content. */
+    fun addDisplay(player: Player, kind: DisplayKind, payload: String, item: ItemRef? = null) {
         val session = plugin.sessions.get(player.uniqueId) ?: return noSession(player)
         if (!checkAddAllowed(player)) return
         val origin = ensureOrigin(session, player)
         val element = DisplayElement(
             localId = session.scene.nextLocalId(), offset = offsetOf(player, origin), yaw = player.location.yaw,
-            kind = kind, payload = payload,
+            kind = kind, payload = if (kind == DisplayKind.ITEM) "" else payload,
+            item = if (kind == DisplayKind.ITEM) item else null,
         )
         finishAdd(player, session, element, EditMode.TRANSLATE, "add.display")
     }
@@ -275,10 +286,11 @@ class EditorController(private val plugin: AwesomeArmorStandEditorPlugin) {
 
     fun openNew(player: Player, name: String) {
         if (blockedByUnsaved(player)) return
+        if (!nameFits(player, name)) return
         val scene = Scene(id = UUID.randomUUID().toString(), owner = player.uniqueId.toString(), name = name)
         val session = reopen(player, scene)
         session.origin = player.location.clone()
-        plugin.texts.send(player, "scene.new", "name" to name)
+        plugin.texts.send(player, "scene.new", "name" to plugin.texts.escape(name))
     }
 
     /**
@@ -305,13 +317,13 @@ class EditorController(private val plugin: AwesomeArmorStandEditorPlugin) {
     fun loadFresh(player: Player, name: String) {
         if (blockedByUnsaved(player)) return
         val scene = plugin.store.loadByName(player.uniqueId, name)
-            ?: return plugin.texts.send(player, "scene.not-found", "name" to name)
+            ?: return plugin.texts.send(player, "scene.not-found", "name" to plugin.texts.escape(name))
         val origin = player.location.clone()
         if (!checkLimits(player, scene.elements.size)) return
         if (!checkRegion(player, scenePoints(scene, origin))) return
         if (!firePlace(player, scene, origin)) return plugin.texts.send(player, "share.place-cancelled")
         val session = reopen(player, scene)
-        plugin.placement.placeAll(session, origin, player.uniqueId)
+        val failures = plugin.placement.placeAll(session, origin, player.uniqueId)
         // Fresh sessions start unselected; pick the first element so setequip/flag/pose
         // work right after load without hunting for the edit tool first.
         session.selectedLocalId = scene.elements.firstOrNull()?.localId
@@ -319,6 +331,29 @@ class EditorController(private val plugin: AwesomeArmorStandEditorPlugin) {
             plugin.particles.spawnEmitter(origin, scene.id, player.uniqueId, emitter, session.placementId, scene.name)
         }
         plugin.texts.send(player, "scene.loaded", "name" to name, "count" to scene.elements.size.toString())
+        reportItemFailures(player, failures)
+    }
+
+    /** Tells the player which item slots stayed empty (unknown id / components this server can't parse). */
+    private fun reportItemFailures(player: Player, failures: List<PlacementService.ItemFailure>) {
+        if (failures.isEmpty()) return
+        plugin.texts.send(player, "item.unresolved-header", "count" to failures.size.toString())
+        for (f in failures.take(8)) {
+            plugin.texts.send(
+                player, "item.unresolved-line",
+                "id" to f.localId.toString(),
+                "slot" to plugin.texts.label("item.slot.${f.slot}"),
+                "item" to (f.id?.let { plugin.texts.escape(it) } ?: plugin.texts.label("item.legacy-data")),
+            )
+        }
+        if (failures.size > 8) plugin.texts.send(player, "item.unresolved-more", "count" to (failures.size - 8).toString())
+    }
+
+    /** Scene names are 1..64 characters (code points) in schema v3. */
+    private fun nameFits(player: Player, name: String): Boolean {
+        if (name.codePointCount(0, name.length) <= MAX_SCENE_NAME) return true
+        plugin.texts.send(player, "scene.name-too-long", "max" to MAX_SCENE_NAME.toString())
+        return false
     }
 
     /** Fires the cancellable place event; returns false if a third-party plugin vetoed it. */
@@ -393,7 +428,7 @@ class EditorController(private val plugin: AwesomeArmorStandEditorPlugin) {
         }
         session.selectedLocalId = tag.localId
         session.mode = if (matched is ArmorStandElement) EditMode.POSE else EditMode.TRANSLATE
-        plugin.texts.send(player, "edit.begin", "name" to scene.name)
+        plugin.texts.send(player, "edit.begin", "name" to plugin.texts.escape(scene.name))
         readout(player, session)
     }
 
@@ -470,7 +505,7 @@ class EditorController(private val plugin: AwesomeArmorStandEditorPlugin) {
         if (el !is DisplayElement || el.kind != DisplayKind.ITEM) return@withSession plugin.texts.send(player, "payload.wrong-kind")
         val off = player.inventory.itemInOffHand
         if (off.type.isAir) return@withSession plugin.texts.send(player, "payload.offhand-empty")
-        el.payload = ItemCodec.encode(off)
+        el.item = ItemResolver.toRef(off)
         s.entities[el.localId]?.let { plugin.placement.apply(it, el) }
         s.dirty = true
         plugin.texts.send(player, "payload.set")
@@ -490,7 +525,7 @@ class EditorController(private val plugin: AwesomeArmorStandEditorPlugin) {
         val el = s.selected()
         if (el !is ArmorStandElement) return@withSession plugin.texts.send(player, "equip.only-stand")
         val off = player.inventory.itemInOffHand
-        val encoded = if (off.type.isAir) null else ItemCodec.encode(off)
+        val encoded = if (off.type.isAir) null else ItemResolver.toRef(off)
         val eq = el.equipment
         // Empty off-hand still clears the slot (documented in MANUAL), but the reply must say
         // "cleared", not "set" — otherwise an empty off-hand reads as a silent success.
@@ -506,8 +541,8 @@ class EditorController(private val plugin: AwesomeArmorStandEditorPlugin) {
         s.entities[el.localId]?.let { plugin.placement.apply(it, el) }
         s.dirty = true
         when {
-            encoded != null -> plugin.texts.send(player, "equip.set", "slot" to slot)
-            old != null -> plugin.texts.send(player, "equip.cleared", "slot" to slot)
+            encoded != null -> plugin.texts.send(player, "equip.set", "slot" to plugin.texts.escape(slot))
+            old != null -> plugin.texts.send(player, "equip.cleared", "slot" to plugin.texts.escape(slot))
             else -> plugin.texts.send(player, "equip.hint")
         }
     }
@@ -528,7 +563,7 @@ class EditorController(private val plugin: AwesomeArmorStandEditorPlugin) {
         }
         s.entities[el.localId]?.let { plugin.placement.apply(it, el) }
         s.dirty = true
-        plugin.texts.send(player, "flag.toggled", "flag" to flag)
+        plugin.texts.send(player, "flag.toggled", "flag" to plugin.texts.escape(flag))
     }
 
     fun selectedIsArmorStand(player: Player): Boolean =
@@ -545,7 +580,7 @@ class EditorController(private val plugin: AwesomeArmorStandEditorPlugin) {
         val clickable = plugin.texts.component("export.click")
             .clickEvent(ClickEvent.copyToClipboard(commands))
         plugin.texts.sendComponent(player, clickable)
-        plugin.texts.send(player, "export.saved", "path" to file.path)
+        plugin.texts.send(player, "export.saved", "path" to plugin.texts.escape(file.path))
         LycoLibHook.audit(plugin.name, player.name, "scene.export", "name=${s.scene.name}")
     }
 
@@ -558,7 +593,7 @@ class EditorController(private val plugin: AwesomeArmorStandEditorPlugin) {
             f.parentFile.mkdirs()
             f.writeText(content, Charsets.UTF_8)
         }
-        plugin.texts.send(player, "export.mcfunction-saved", "path" to base.path)
+        plugin.texts.send(player, "export.mcfunction-saved", "path" to plugin.texts.escape(base.path))
         LycoLibHook.audit(plugin.name, player.name, "scene.export-mcfunction", "name=${s.scene.name}")
     }
 
@@ -574,21 +609,79 @@ class EditorController(private val plugin: AwesomeArmorStandEditorPlugin) {
 
     // --- share code / import (P4) ---
 
-    /** Emits a copy-pasteable share code for the current scene. */
+    /**
+     * Share the current scene. With `share.upload` (and remote on) it is uploaded to AASE Studio for a
+     * short code; otherwise, or if the upload fails, the player gets the AASE1 text to copy. Both forms
+     * are de-identified (no owner / id / last anchor).
+     */
     fun shareCode(player: Player) = withSession(player) { s ->
         if (s.scene.elements.isEmpty() && s.scene.emitters.isEmpty()) return@withSession plugin.texts.send(player, "export.empty")
-        val code = ShareCode.encode(s.scene)
+        LycoLibHook.audit(plugin.name, player.name, "scene.share", "name=${s.scene.name}")
+        // Snapshot both forms now, on the main thread: the scene may change while the upload runs.
+        val aase1 = ShareCode.encode(s.scene)
+        if (plugin.remote.uploadEnabled()) {
+            val json = SceneCodec.toJson(s.scene, SceneCodec.WriteOptions(includeIdentity = false))
+            val sent = plugin.remote.upload(player, json) { p, result ->
+                when (result) {
+                    is StudioClient.UploadResult.Ok -> sendShortCode(p, result)
+                    StudioClient.UploadResult.RateLimited -> sendAase1(p, aase1, "share.upload-rate-limited")
+                    StudioClient.UploadResult.TooLarge -> sendAase1(p, aase1, "share.upload-too-large")
+                    StudioClient.UploadResult.Rejected -> sendAase1(p, aase1, "share.upload-rejected")
+                    StudioClient.UploadResult.Timeout -> sendAase1(p, aase1, "share.upload-timeout")
+                    is StudioClient.UploadResult.HttpError -> sendAase1(p, aase1, "share.upload-failed", "reason" to "HTTP ${result.status}")
+                    is StudioClient.UploadResult.Failed -> sendAase1(p, aase1, "share.upload-failed", "reason" to plugin.texts.escape(result.reason))
+                }
+            }
+            if (sent) return@withSession
+        }
+        sendAase1(player, aase1, null)
+    }
+
+    private fun sendShortCode(player: Player, r: StudioClient.UploadResult.Ok) {
+        plugin.texts.send(player, "share.uploaded", "code" to plugin.texts.escape(r.code))
+        var buttons = listOf(
+            plugin.texts.component("share.copy-import", "command" to plugin.texts.escape(r.importCommand))
+                .clickEvent(ClickEvent.copyToClipboard(r.importCommand)),
+        )
+        r.url?.let { url -> buttons = buttons + plugin.texts.component("share.open-url").clickEvent(ClickEvent.openUrl(url)) }
+        plugin.texts.sendButtons(player, buttons)
+    }
+
+    private fun sendAase1(player: Player, code: String, reasonKey: String?, vararg placeholders: Pair<String, String>) {
+        reasonKey?.let { plugin.texts.send(player, it, *placeholders) }
         val clickable = plugin.texts.component("share.click").clickEvent(ClickEvent.copyToClipboard(code))
         plugin.texts.sendComponent(player, clickable)
         plugin.texts.send(player, "share.hint")
-        LycoLibHook.audit(plugin.name, player.name, "scene.share", "name=${s.scene.name}")
     }
 
-    /** Imports a share code as a new scene owned by the importer, placed at their feet. */
+    /**
+     * `/aase import <short code | share URL | AASE1:...> [name]`. A short code or URL is fetched from
+     * AASE Studio (asynchronously, see RemoteService); AASE1 text is decoded locally. Both end in
+     * [importScene], which applies the usual placement guards.
+     */
     fun importCode(player: Player, code: String, name: String?) {
         if (blockedByUnsaved(player)) return
-        val decoded = ShareCode.decode(code)
-            ?: return plugin.texts.send(player, "share.import-bad")
+        if (name != null && !nameFits(player, name)) return
+        if (!ShortCodes.isAase1(code)) {
+            val short = ShortCodes.parse(code)
+            if (short != null) {
+                if (!plugin.settings.remote.enabled) return plugin.texts.send(player, "remote.disabled")
+                plugin.remote.importRemote(player, short) { p, scene ->
+                    // Back on the main thread: the player may have started editing meanwhile.
+                    if (!blockedByUnsaved(p)) importScene(p, scene, name)
+                }
+                return
+            }
+        }
+        when (val decoded = ShareCode.decodeResult(code)) {
+            is ShareCode.Decoded.Ok -> importScene(player, decoded.scene, name)
+            is ShareCode.Decoded.Invalid -> plugin.remote.sendInvalid(player, decoded.errors)
+            ShareCode.Decoded.Malformed -> plugin.texts.send(player, "share.import-bad")
+        }
+    }
+
+    /** Places an imported scene as a new placement owned by the importer, at their feet. */
+    private fun importScene(player: Player, decoded: Scene, name: String?) {
         if (!player.hasPermission("aase.bypass.limit") && decoded.elements.size > plugin.settings.limitPerPlayer) {
             return plugin.texts.send(player, "share.import-too-big", "max" to plugin.settings.limitPerPlayer.toString())
         }
@@ -604,14 +697,15 @@ class EditorController(private val plugin: AwesomeArmorStandEditorPlugin) {
         if (!checkRegion(player, scenePoints(scene, origin))) return
         if (!firePlace(player, scene, origin)) return plugin.texts.send(player, "share.place-cancelled")
         val session = reopen(player, scene)
-        plugin.placement.placeAll(session, origin, player.uniqueId)
+        val failures = plugin.placement.placeAll(session, origin, player.uniqueId)
         session.selectedLocalId = scene.elements.firstOrNull()?.localId
         for (emitter in scene.emitters) {
             plugin.particles.spawnEmitter(origin, scene.id, player.uniqueId, emitter, session.placementId, scene.name)
         }
         session.dirty = true
         LycoLibHook.audit(plugin.name, player.name, "scene.import", "name=${scene.name} elements=${scene.elements.size}")
-        plugin.texts.send(player, "share.imported", "name" to scene.name, "count" to scene.elements.size.toString())
+        plugin.texts.send(player, "share.imported", "name" to plugin.texts.escape(scene.name), "count" to scene.elements.size.toString())
+        reportItemFailures(player, failures)
     }
 
     // --- info ---
@@ -619,7 +713,7 @@ class EditorController(private val plugin: AwesomeArmorStandEditorPlugin) {
     /** Chat summary of the current scene: counts, animation, selection, save state. */
     fun info(player: Player) = withSession(player) { s ->
         val sc = s.scene
-        plugin.texts.send(player, "info.header", "name" to sc.name)
+        plugin.texts.send(player, "info.header", "name" to plugin.texts.escape(sc.name))
         plugin.texts.send(
             player, "info.elements",
             "count" to sc.elements.size.toString(),
@@ -647,8 +741,8 @@ class EditorController(private val plugin: AwesomeArmorStandEditorPlugin) {
 
     // --- equipment menu accessors ---
 
-    /** Current equipment (slot -> item base64 or null) for the selected stand, or null if none selected. */
-    fun equipmentSnapshot(player: Player): Map<String, String?>? {
+    /** Current equipment (slot -> item or null) for the selected stand, or null if none selected. */
+    fun equipmentSnapshot(player: Player): Map<String, ItemRef?>? {
         val el = plugin.sessions.get(player.uniqueId)?.selected() as? ArmorStandElement ?: return null
         return linkedMapOf(
             "head" to el.equipment.head, "chest" to el.equipment.chest, "legs" to el.equipment.legs,
@@ -660,7 +754,7 @@ class EditorController(private val plugin: AwesomeArmorStandEditorPlugin) {
     fun setEquipItem(player: Player, slot: String, item: ItemStack?): Boolean {
         val s = plugin.sessions.get(player.uniqueId) ?: return false
         val el = s.selected() as? ArmorStandElement ?: return false
-        val encoded = item?.takeIf { !it.type.isAir }?.let { ItemCodec.encode(it) }
+        val encoded = item?.takeIf { !it.type.isAir }?.let { ItemResolver.toRef(it) }
         when (slot) {
             "head" -> el.equipment.head = encoded
             "chest" -> el.equipment.chest = encoded
@@ -680,7 +774,7 @@ class EditorController(private val plugin: AwesomeArmorStandEditorPlugin) {
     fun addEmitter(player: Player, particleType: String) = withSession(player) { s ->
         val type = particleType.uppercase()
         if (runCatching { Particle.valueOf(type) }.isFailure) {
-            return@withSession plugin.texts.send(player, "particle.invalid", "type" to particleType)
+            return@withSession plugin.texts.send(player, "particle.invalid", "type" to plugin.texts.escape(particleType))
         }
         if (!checkAddAllowed(player)) return@withSession
         val origin = ensureOrigin(s, player)
@@ -749,16 +843,16 @@ class EditorController(private val plugin: AwesomeArmorStandEditorPlugin) {
     fun applyPose(player: Player, presetId: String) = withSession(player) { s ->
         val el = s.selected()
         if (el !is ArmorStandElement) return@withSession plugin.texts.send(player, "preset.only-stand")
-        val preset = plugin.presets.pose(presetId) ?: return@withSession plugin.texts.send(player, "preset.pose-missing", "id" to presetId)
+        val preset = plugin.presets.pose(presetId) ?: return@withSession plugin.texts.send(player, "preset.pose-missing", "id" to plugin.texts.escape(presetId))
         el.pose = preset.pose
         preset.arms?.let { el.flags.arms = it }
         s.entities[el.localId]?.let { plugin.placement.apply(it, el) }
         s.dirty = true
-        plugin.texts.send(player, "preset.pose-applied", "name" to plugin.texts.presetName(preset.id, preset.name))
+        plugin.texts.send(player, "preset.pose-applied", "name" to plugin.texts.presetName(preset.id, plugin.texts.escape(preset.name)))
     }
 
     fun applyFx(player: Player, presetId: String) = withSession(player) { s ->
-        val preset = plugin.presets.fx(presetId) ?: return@withSession plugin.texts.send(player, "preset.fx-missing", "id" to presetId)
+        val preset = plugin.presets.fx(presetId) ?: return@withSession plugin.texts.send(player, "preset.fx-missing", "id" to plugin.texts.escape(presetId))
         if (!checkLimits(player, preset.emitters.size)) return@withSession
         val origin = ensureOrigin(s, player)
         // Centre the effect on the selected element if there is one, else on the player.
@@ -778,7 +872,7 @@ class EditorController(private val plugin: AwesomeArmorStandEditorPlugin) {
             plugin.particles.spawnEmitter(origin, s.scene.id, player.uniqueId, emitter, s.placementId, s.scene.name)
         }
         s.dirty = true
-        plugin.texts.send(player, "preset.fx-applied", "name" to plugin.texts.presetName(preset.id, preset.name))
+        plugin.texts.send(player, "preset.fx-applied", "name" to plugin.texts.presetName(preset.id, plugin.texts.escape(preset.name)))
     }
 
     /** Make the pose symmetric by mirroring the left arm/leg onto the right (or vice versa). */
@@ -815,7 +909,7 @@ class EditorController(private val plugin: AwesomeArmorStandEditorPlugin) {
         cfg.set("poses", list)
         cfg.save(file)
         plugin.presets.reload(plugin)
-        plugin.texts.send(player, "preset.pose-saved", "id" to id)
+        plugin.texts.send(player, "preset.pose-saved", "id" to plugin.texts.escape(id))
     }
 
     private fun round1(v: Double): Double = Math.round(v * 10.0) / 10.0

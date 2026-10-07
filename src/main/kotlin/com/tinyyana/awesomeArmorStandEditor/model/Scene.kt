@@ -21,7 +21,8 @@ data class Scene(
     fun nextEmitterId(): Int = (emitters.maxOfOrNull { it.id } ?: 0) + 1
 
     companion object {
-        const val SCHEMA_VERSION = 2
+        /** Version written by default. The codec still reads 2 (legacy: radians + Bukkit base64). */
+        const val SCHEMA_VERSION = 3
     }
 }
 
@@ -53,7 +54,9 @@ data class DisplayElement(
     override var yaw: Float = 0f,
     var kind: DisplayKind = DisplayKind.ITEM,
     var transform: Transform = Transform.IDENTITY,
-    /** ITEM: item base64; BLOCK: block-data string; TEXT: MiniMessage string. */
+    /** ITEM only: the item (null = empty). */
+    var item: ItemRef? = null,
+    /** BLOCK: block-data string; TEXT: MiniMessage string. Unused for ITEM. */
     var payload: String = "",
     var billboard: String = "FIXED",      // Display.Billboard name
     var brightnessBlock: Int? = null,     // 0..15, null = default
@@ -62,15 +65,35 @@ data class DisplayElement(
     var viewRange: Float = 1.0f,
 ) : Element
 
-/** Equipment slots as opaque item base64 (null = empty). Bukkit (de)serialization lives in the store layer. */
+/** Equipment slots (null = empty). Resolving an [ItemRef] to an ItemStack lives in the store layer. */
 data class Equipment(
-    var head: String? = null,
-    var chest: String? = null,
-    var legs: String? = null,
-    var feet: String? = null,
-    var mainHand: String? = null,
-    var offHand: String? = null,
+    var head: ItemRef? = null,
+    var chest: ItemRef? = null,
+    var legs: ItemRef? = null,
+    var feet: ItemRef? = null,
+    var mainHand: ItemRef? = null,
+    var offHand: ItemRef? = null,
 )
+
+/**
+ * An item, portable across servers and editable on the website.
+ *
+ * - [id] namespaced item id (`minecraft:diamond_sword`); null only for a legacy v2 item that has
+ *   nothing but Bukkit base64.
+ * - [components] item components in `/give` syntax (`[enchantments={sharpness:5}]`), starting with `[`.
+ * - [bukkit] exact Bukkit-serialized base64 written by the plugin; when present the plugin uses it first.
+ */
+data class ItemRef(
+    val id: String?,
+    val count: Int = 1,
+    val components: String? = null,
+    val bukkit: String? = null,
+) {
+    companion object {
+        /** A legacy v2 slot / payload: Bukkit base64 only. */
+        fun legacy(base64: String) = ItemRef(id = null, bukkit = base64)
+    }
+}
 
 data class ArmorStandFlags(
     var small: Boolean = false,

@@ -18,11 +18,14 @@ import com.tinyyana.awesomeArmorStandEditor.particle.ParticleService
 import com.tinyyana.awesomeArmorStandEditor.placement.EntityRegistry
 import com.tinyyana.awesomeArmorStandEditor.preset.PresetLibrary
 import com.tinyyana.awesomeArmorStandEditor.recall.RecallService
+import com.tinyyana.awesomeArmorStandEditor.remote.RemoteService
 import com.tinyyana.awesomeArmorStandEditor.placement.PlacementService
 import com.tinyyana.awesomeArmorStandEditor.region.EventProbeGuard
 import com.tinyyana.awesomeArmorStandEditor.region.PermissiveGuard
 import com.tinyyana.awesomeArmorStandEditor.region.RegionGuard
 import com.tinyyana.awesomeArmorStandEditor.session.EditSessionManager
+import com.tinyyana.awesomeArmorStandEditor.store.ItemResolver
+import com.tinyyana.awesomeArmorStandEditor.store.SceneCodec
 import com.tinyyana.awesomeArmorStandEditor.store.SceneStore
 import com.tinyyana.awesomeArmorStandEditor.text.Texts
 import org.bukkit.plugin.java.JavaPlugin
@@ -46,6 +49,7 @@ class AwesomeArmorStandEditorPlugin : JavaPlugin() {
     lateinit var presets: PresetLibrary; private set
     lateinit var adminTools: AdminTools; private set
     lateinit var recall: RecallService; private set
+    lateinit var remote: RemoteService; private set
 
     @Volatile lateinit var settings: EditorSettings; private set
     @Volatile lateinit var guard: RegionGuard; private set
@@ -58,7 +62,17 @@ class AwesomeArmorStandEditorPlugin : JavaPlugin() {
         presets = PresetLibrary.load(this)
         registry = EntityRegistry(keys)
         placement = PlacementService(registry, keys)
-        store = SceneStore(File(dataFolder, "scenes"))
+        store = SceneStore(
+            File(dataFolder, "scenes"),
+            writeOptions = {
+                SceneCodec.WriteOptions(
+                    schema = settings.writeSchema,
+                    legacyItemEncoder = ItemResolver::encodeLegacy,
+                    onWarning = { logger.warning(it) },
+                )
+            },
+            onWarning = { logger.warning(it) },
+        )
         sessions = EditSessionManager()
         guard = buildGuard()
         controller = EditorController(this)
@@ -70,6 +84,7 @@ class AwesomeArmorStandEditorPlugin : JavaPlugin() {
         animation = AnimationPlayer(this)
         adminTools = AdminTools(this)
         recall = RecallService(this)
+        remote = RemoteService(this)   // builds no HttpClient until a remote import/upload is requested
         LycoLibHook.init(server.pluginManager)
         registry.indexLoaded()
         particles.indexLoaded()
@@ -97,6 +112,7 @@ class AwesomeArmorStandEditorPlugin : JavaPlugin() {
     override fun onDisable() {
         // Entities placed in the world persist (they're real tagged entities). Only editing state is dropped.
         if (::particles.isInitialized) particles.stop()
+        if (::remote.isInitialized) remote.shutdown()
         if (::texts.isInitialized) texts.close()
     }
 
@@ -104,6 +120,7 @@ class AwesomeArmorStandEditorPlugin : JavaPlugin() {
         reloadConfig()
         settings = EditorSettings.load(config)
         guard = buildGuard()
+        remote.shutdown()   // the next request rebuilds the client from the new import.remote settings
         texts.reload(this)
         presets.reload(this)
     }

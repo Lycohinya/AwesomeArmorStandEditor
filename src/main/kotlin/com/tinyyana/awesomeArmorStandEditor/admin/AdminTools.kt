@@ -31,19 +31,19 @@ class AdminTools(private val plugin: AwesomeArmorStandEditorPlugin) {
     fun whois(admin: Player) {
         val target = nearestOwned(admin) ?: return plugin.texts.send(admin, "admin.no-target")
         val tag = plugin.registry.read(target) ?: return plugin.texts.send(admin, "admin.no-target")
-        val sceneName = plugin.store.load(tag.owner, tag.sceneId)?.name
+        val sceneName = plugin.store.load(tag.owner, tag.sceneId)?.name?.let { plugin.texts.escape(it) }
             ?: plugin.texts.raw("admin.scene-missing") ?: "?"
         val loc = target.location
 
         plugin.texts.send(
             admin, "admin.whois",
-            "owner" to ownerName(tag.owner),
+            "owner" to plugin.texts.escape(ownerName(tag.owner)),
             "scene" to sceneName,
             "id" to tag.localId.toString(),
         )
         plugin.texts.send(
             admin, "admin.whois-where",
-            "world" to (loc.world?.name ?: "?"),
+            "world" to plugin.texts.escape(loc.world?.name ?: "?"),
             "x" to loc.blockX.toString(), "y" to loc.blockY.toString(), "z" to loc.blockZ.toString(),
             "extra" to if (isEmitter(target)) (plugin.texts.raw("admin.whois-emitter") ?: "") else "",
         )
@@ -64,7 +64,7 @@ class AdminTools(private val plugin: AwesomeArmorStandEditorPlugin) {
 
         plugin.texts.send(
             admin, "admin.removed-one",
-            "owner" to ownerName(tag.owner),
+            "owner" to plugin.texts.escape(ownerName(tag.owner)),
             "id" to tag.localId.toString(),
         )
         LycoLibHook.audit(
@@ -81,7 +81,7 @@ class AdminTools(private val plugin: AwesomeArmorStandEditorPlugin) {
             ?: return plugin.texts.send(admin, "usage.admin")
 
         val ownerFilter = request.ownerName?.let {
-            resolveOwner(it) ?: return plugin.texts.send(admin, "admin.owner-not-found", "name" to it)
+            resolveOwner(it) ?: return plugin.texts.send(admin, "admin.owner-not-found", "name" to plugin.texts.escape(it))
         }
         val center = admin.location.clone()
         val victims = ownedNear(center, request.radius, ownerFilter)
@@ -96,7 +96,7 @@ class AdminTools(private val plugin: AwesomeArmorStandEditorPlugin) {
             createdAtMillis = System.currentTimeMillis(),
         )
         val ownerNote = request.ownerName?.let {
-            plugin.texts.raw("admin.purge-preview-owner")?.replace("{owner}", it) ?: ""
+            plugin.texts.raw("admin.purge-preview-owner")?.replace("{owner}", plugin.texts.escape(it)) ?: ""
         } ?: ""
         plugin.texts.send(
             admin, "admin.purge-preview",
@@ -168,7 +168,7 @@ class AdminTools(private val plugin: AwesomeArmorStandEditorPlugin) {
             player, "clear.done",
             "count" to victims.size.toString(),
             "radius" to radius.toString(),
-            "owners" to owners.joinToString("、") { ownerName(it) },
+            "owners" to owners.joinToString("、") { plugin.texts.escape(ownerName(it)) },
         )
         plugin.texts.send(player, "admin.loaded-only")
         LycoLibHook.audit(

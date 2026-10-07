@@ -3,7 +3,7 @@ package com.tinyyana.awesomeArmorStandEditor.command
 import com.tinyyana.awesomeArmorStandEditor.AwesomeArmorStandEditorPlugin
 import com.tinyyana.awesomeArmorStandEditor.edit.ToolItem
 import com.tinyyana.awesomeArmorStandEditor.model.DisplayKind
-import com.tinyyana.awesomeArmorStandEditor.store.ItemCodec
+import com.tinyyana.awesomeArmorStandEditor.store.ItemResolver
 import org.bukkit.Material
 import org.bukkit.command.Command
 import org.bukkit.command.CommandSender
@@ -168,14 +168,15 @@ class AaseCommand(private val plugin: AwesomeArmorStandEditorPlugin) : TabExecut
             else -> return deny(player, "usage.adddisplay")
         }
         val payload = when (kind) {
-            DisplayKind.ITEM -> {
-                val off = player.inventory.itemInOffHand
-                ItemCodec.encode(if (off.type.isAir) ItemStack(Material.STONE) else off)
-            }
+            DisplayKind.ITEM -> ""
             DisplayKind.BLOCK -> "minecraft:stone"
             DisplayKind.TEXT -> texts.label("display.default-text")
         }
-        controller.addDisplay(player, kind, payload)
+        val item = if (kind == DisplayKind.ITEM) {
+            val off = player.inventory.itemInOffHand
+            ItemResolver.toRef(if (off.type.isAir) ItemStack(Material.STONE) else off)
+        } else null
+        controller.addDisplay(player, kind, payload, item)
     }
 
     private fun giveTool(player: Player) {
