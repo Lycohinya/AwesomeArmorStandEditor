@@ -9,6 +9,7 @@ import com.tinyyana.awesomeArmorStandEditor.edit.EditorController
 import com.tinyyana.awesomeArmorStandEditor.integration.LycoLibHook
 import com.tinyyana.awesomeArmorStandEditor.listener.ChunkIndexListener
 import com.tinyyana.awesomeArmorStandEditor.listener.EntityProtectionListener
+import com.tinyyana.awesomeArmorStandEditor.listener.SessionQuitListener
 import com.tinyyana.awesomeArmorStandEditor.menu.ControlPanel
 import com.tinyyana.awesomeArmorStandEditor.menu.EquipmentMenu
 import com.tinyyana.awesomeArmorStandEditor.menu.GuideBook
@@ -16,6 +17,7 @@ import com.tinyyana.awesomeArmorStandEditor.menu.PresetGallery
 import com.tinyyana.awesomeArmorStandEditor.particle.ParticleService
 import com.tinyyana.awesomeArmorStandEditor.placement.EntityRegistry
 import com.tinyyana.awesomeArmorStandEditor.preset.PresetLibrary
+import com.tinyyana.awesomeArmorStandEditor.recall.RecallService
 import com.tinyyana.awesomeArmorStandEditor.placement.PlacementService
 import com.tinyyana.awesomeArmorStandEditor.region.EventProbeGuard
 import com.tinyyana.awesomeArmorStandEditor.region.PermissiveGuard
@@ -43,6 +45,7 @@ class AwesomeArmorStandEditorPlugin : JavaPlugin() {
     lateinit var animation: AnimationPlayer; private set
     lateinit var presets: PresetLibrary; private set
     lateinit var adminTools: AdminTools; private set
+    lateinit var recall: RecallService; private set
 
     @Volatile lateinit var settings: EditorSettings; private set
     @Volatile lateinit var guard: RegionGuard; private set
@@ -66,6 +69,7 @@ class AwesomeArmorStandEditorPlugin : JavaPlugin() {
         particles = ParticleService(this, keys)
         animation = AnimationPlayer(this)
         adminTools = AdminTools(this)
+        recall = RecallService(this)
         LycoLibHook.init(server.pluginManager)
         registry.indexLoaded()
         particles.indexLoaded()
@@ -81,6 +85,7 @@ class AwesomeArmorStandEditorPlugin : JavaPlugin() {
             registerEvents(EditToolListener(this@AwesomeArmorStandEditorPlugin), this@AwesomeArmorStandEditorPlugin)
             registerEvents(EntityProtectionListener(this@AwesomeArmorStandEditorPlugin), this@AwesomeArmorStandEditorPlugin)
             registerEvents(ChunkIndexListener(this@AwesomeArmorStandEditorPlugin), this@AwesomeArmorStandEditorPlugin)
+            registerEvents(SessionQuitListener(this@AwesomeArmorStandEditorPlugin), this@AwesomeArmorStandEditorPlugin)
             registerEvents(panel, this@AwesomeArmorStandEditorPlugin)
             registerEvents(gallery, this@AwesomeArmorStandEditorPlugin)
             registerEvents(equipmentMenu, this@AwesomeArmorStandEditorPlugin)

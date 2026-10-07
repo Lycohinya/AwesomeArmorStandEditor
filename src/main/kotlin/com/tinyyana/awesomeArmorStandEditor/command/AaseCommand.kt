@@ -69,7 +69,29 @@ class AaseCommand(private val plugin: AwesomeArmorStandEditorPlugin) : TabExecut
             "list" -> require(sender, "aase.use") { listScenes(sender) }
             "info" -> require(sender, "aase.use") { controller.info(sender) }
             "equip" -> require(sender, "aase.use") { plugin.equipmentMenu.open(sender) }
-            "delete" -> require(sender, "aase.use") { controller.deleteSelected(sender) }
+            "delete" -> require(sender, "aase.use") {
+                // Optional element number: chat buttons name the exact element, never "whatever is selected".
+                val id = args.getOrNull(1)
+                when {
+                    id == null -> controller.deleteSelected(sender)
+                    id.toIntOrNull() != null -> controller.deleteElement(sender, id.toInt())
+                    else -> deny(sender, "usage.delete")
+                }
+            }
+            // Recall your own placed work. Owner-only even for admins (they have /aase admin).
+            "remove" -> require(sender, "aase.use") {
+                when (args.getOrNull(1)?.lowercase()) {
+                    "look" -> plugin.recall.previewLook(sender)
+                    "here" -> plugin.recall.previewHere(sender, args.getOrNull(2))
+                    "scene" -> {
+                        val name = args.drop(2).joinToString(" ")
+                        if (name.isBlank()) deny(sender, "usage.remove") else plugin.recall.previewScene(sender, name)
+                    }
+                    "confirm" -> plugin.recall.confirm(sender)
+                    "cancel" -> plugin.recall.cancel(sender)
+                    else -> deny(sender, "usage.remove")
+                }
+            }
             "share" -> require(sender, "aase.scene.share") { controller.shareCode(sender) }
             "import" -> require(sender, "aase.scene.share") {
                 val code = args.getOrNull(1)
@@ -118,7 +140,7 @@ class AaseCommand(private val plugin: AwesomeArmorStandEditorPlugin) : TabExecut
                 args.getOrNull(1)?.let { controller.applyFx(sender, it) } ?: deny(sender, "usage.fx")
             }
             "mirror" -> require(sender, "aase.use") { controller.mirrorPose(sender) }
-            "close" -> require(sender, "aase.use") { controller.close(sender) }
+            "close" -> require(sender, "aase.use") { controller.close(sender, args.getOrNull(1)) }
             // Not admin-gated: it can only clear other people's elements off ground you may build on.
             "undo" -> require(sender, "aase.use") { controller.undo(sender) }
             "clear" -> require(sender, "aase.clear") { plugin.adminTools.clearIntruders(sender, args.drop(1)) }
@@ -183,7 +205,7 @@ class AaseCommand(private val plugin: AwesomeArmorStandEditorPlugin) : TabExecut
         for (line in listOf(
             "help.new", "help.tool", "help.presets", "help.addstand", "help.adddisplay", "help.controls",
             "help.equip", "help.save", "help.load", "help.edit", "help.list", "help.info",
-            "help.export", "help.share", "help.import", "help.close",
+            "help.export", "help.share", "help.import", "help.remove", "help.close",
         )) if (texts.raw(line) != null) texts.send(sender, line)
     }
 
@@ -196,7 +218,7 @@ class AaseCommand(private val plugin: AwesomeArmorStandEditorPlugin) : TabExecut
     private val subcommands = listOf(
         "guide", "tool", "new", "presets", "pose", "fx", "mirror", "addstand", "adddisplay", "setblock", "settext",
         "setitem", "setname", "setequip", "equip", "flag", "particle", "anim", "save", "load", "edit", "select", "list", "info",
-        "undo", "delete", "export", "share", "import", "close", "clear", "admin", "reload",
+        "undo", "delete", "remove", "export", "share", "import", "close", "clear", "admin", "reload",
     )
 
     /** Hidden from tab-complete for players who can't use them. */
@@ -229,10 +251,21 @@ class AaseCommand(private val plugin: AwesomeArmorStandEditorPlugin) : TabExecut
                     (listOf("next", "prev") + ids).filter { it.startsWith(args[1].lowercase()) }
                 }
                 "clear" -> listOf("8", "16", "32").filter { it.startsWith(args[1]) }
+                "remove" -> listOf("look", "here", "scene", "confirm", "cancel").filter { it.startsWith(args[1].lowercase()) }
+                "close" -> listOf("save", "discard").filter { it.startsWith(args[1].lowercase()) }
+                "delete" -> ((sender as? Player)?.let { plugin.sessions.get(it.uniqueId) }
+                    ?.scene?.elements?.map { it.localId.toString() } ?: emptyList()).filter { it.startsWith(args[1]) }
                 else -> emptyList()
             }
             3 -> when (args[0].lowercase()) {
                 "particle" -> if (args[1].equals("add", true)) commonParticles.filter { it.startsWith(args[2].uppercase()) } else emptyList()
+                "remove" -> when (args[1].lowercase()) {
+                    "here" -> listOf("8", "16", "32").filter { it.startsWith(args[2]) }
+                    "scene" -> if (sender is Player) {
+                        plugin.store.list(sender.uniqueId).map { it.name }.filter { it.startsWith(args[2], ignoreCase = true) }
+                    } else emptyList()
+                    else -> emptyList()
+                }
                 "admin" -> if (args[1].equals("purge", true) && sender.hasPermission("aase.admin")) {
                     listOf("8", "16", "32", "64").filter { it.startsWith(args[2]) }
                 } else emptyList()

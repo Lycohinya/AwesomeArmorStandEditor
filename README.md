@@ -26,7 +26,8 @@ Pose armor stands and item/block/text displays with a hybrid GUI + in-world tool
 - **Hybrid interaction**: a GUI control panel *and* a handheld tool for direct in-world nudging, with a live actionbar readout.
 - **Particle effects**: attach particle emitters to a scene; they only fire when a player is nearby *and* the chunk is loaded, under a global per-tick budget.
 - **Keyframe animation**: a timeline with keyframes and live preview playback (displays use client-side interpolation, armor stands are updated tick-by-tick).
-- **Save / share / export**: every scene is a portable JSON blueprint you can place multiple times; `/aase share` produces a **share code** (gzip+Base64, safe to paste in chat) — the recipient runs `/aase import` to get the same build; export a `/summon` command (one-click copy) or a full **mcfunction datapack** (animation-driven).
+- **Save / share / export**: every scene is a portable JSON blueprint you can place multiple times; `/aase share` produces **share code text** (gzip+Base64; usually longer than chat's 256-character limit, so keep it in a file; short-code import via the AASE Studio website is planned for 1.3.0); export a `/summon` command (one-click copy) or a full **mcfunction datapack** (animation-driven).
+- **Recall your own work (1.2.0)**: placed something you don't want? `/aase remove look | here [radius] | scene <name>` previews, then `[Confirm recall]` takes it out of the world within 30 seconds; it only touches **your own** placements, only in loaded chunks, and **never deletes the save**. Each placement is its own copy, so two copies of one save never affect each other. `/aase close` asks before dropping unsaved changes (`[Save and close]` / `[Discard and recall]` / `[Keep editing]`), and the tool's sneak + left-click on your own armor stand previews a recall too (displays and marker stands have no hitbox, so use the commands or the panel's "Recall builds" button).
 - **Equipment menu**: `/aase equip` opens a graphical equipment GUI — click a hotbar/inventory item onto a slot to equip it, click with an empty cursor to unequip — **your items are never consumed or lost**.
 - **Survival-safe**: element ownership tags (anti-griefing), per-player / per-chunk / global element caps, region-protection awareness; **anything that writes to server files (export, saving to the shared preset library) is admin/builder-only by default** (see [Permissions](#permissions)).
 - **Moderation tools**: someone dumped a build somewhere stupid? `/aase admin whois` says who placed it, `/aase admin remove` clears it, and `/aase admin purge <radius> [player]` previews a bulk cleanup that only runs after an explicit `confirm`. It **only ever touches elements this plugin placed** (hand-placed vanilla armor stands are never removed) and **never deletes the owner's saved scene**.
@@ -66,13 +67,15 @@ Upgrading from 0.x: player-facing text moved out of `messages.yml` / `guide.yml`
 | `/aase save` · `/aase load <name>` · `/aase list` · `/aase info` | Save / place / list / scene info |
 | `/aase edit` | Bind to and edit an existing nearby build (no duplicate is created) |
 | `/aase select <id\|next\|prev>` | Switch which element is selected without re-pointing the tool (tab-completes the scene's element IDs) |
-| `/aase delete` | Delete the currently selected element |
+| `/aase delete [id]` | Delete the selected element, or the one you name (world first; says so if no entity was found) |
+| `/aase remove look` · `here [radius]` · `scene <name>` | Preview recalling your own placed work (default radius 8, capped by `admin.max-purge-radius`) |
+| `/aase remove confirm` · `/aase remove cancel` | Confirm (within 30 s) / cancel the recall. Saves are never deleted |
 | `/aase guide` | Open the in-game guide book |
-| `/aase close` | Stop any playing animation and close the current edit session |
-| `/aase share` · `/aase import <code> [name]` | Generate a share code / import someone else's |
+| `/aase close [save\|discard]` | Close the current edit session; asks first if there are unsaved changes. `save` saves then closes, `discard` doesn't save and recalls this copy |
+| `/aase share` · `/aase import <code> [name]` | Generate share code text (store it in a file; too long for chat) / import |
 | `/aase export command` · `/aase export function` | Export a summon command / mcfunction datapack (**writes server files, admin/builder-only by default**) |
 | `/aase clear <radius>` | Clear *other players'* elements off ground you may build on (never your own) |
-| `/aase admin whois` · `/aase admin remove` | Who placed the nearest element / remove it (**admin-only**) |
+| `/aase admin whois` · `/aase admin remove` | Who placed the nearest element (with its placement and orphan flag) / remove it (**admin-only**) |
 | `/aase admin purge <radius> [player]` · `/aase admin confirm` | Preview a bulk cleanup, then confirm it (**admin-only**) |
 | `/aase reload` | Reload configuration (admin) |
 
@@ -148,7 +151,8 @@ Share code format: `ShareCode.encode(scene)` = `AASE1:` + URL-safe Base64(gzip(J
 - **混合式操作**:控制面板 GUI + 手持工具在世界中直接微調,actionbar 即時讀數。
 - **粒子特效**:元件場景可掛粒子發射器,只在附近有玩家 + 已載入區塊時發射,有每 tick 全域預算。
 - **關鍵影格動畫**:時間軸 + 關鍵影格,即時預覽播放(Display 走客戶端插值,盔甲座逐 tick)。
-- **存檔 / 分享 / 匯出**:每個場景是可攜的 JSON 藍圖,可重複放置;`/aase share` 產生一串**分享碼**(gzip+Base64,可在聊天貼給別人),對方 `/aase import` 一鍵拿到同一份作品;匯出 `/summon` 指令(一鍵複製)或 **mcfunction 資料包**(含動畫驅動)。
+- **存檔 / 分享 / 匯出**:每個場景是可攜的 JSON 藍圖,可重複放置;`/aase share` 產生**分享碼文字**(gzip+Base64,通常超過聊天欄 256 字的上限,請存成檔案保存;網站 AASE Studio 的短碼匯入預計 1.3.0 推出);匯出 `/summon` 指令(一鍵複製)或 **mcfunction 資料包**(含動畫驅動)。
+- **收回自己的作品(1.2.0)**:放錯了、不要了?`/aase remove look | here [半徑] | scene <名稱>` 先預覽,30 秒內點 `[確認收回]` 才從世界收走;只動**自己放的**、只處理已載入區塊、**不刪存檔**。每次放置都是獨立的一份,同一份存檔放兩次互不影響。`/aase close` 有未存變更會先問(`[儲存並關閉]` / `[放棄並收回]` / `[繼續編輯]`);拿工具潛行左鍵打自己的盔甲座也能預覽收回(Display 與 marker 盔甲座沒有碰撞箱,打不到,請用指令或面板「收回作品」)。
 - **裝備選單**:`/aase equip` 開圖形裝備欄,手持物品點格子就穿上、空手點就卸下 —— **不會消耗或弄丟你的物品**。
 - **生存服安全**:元件擁有權標記(反格里芬)、每人/每區塊/全域數量上限、尊重領地保護;**寫入伺服器檔案的功能(匯出、存進共用範本庫)預設只開放給管理員/建築師**(見權限)。
 - **管理員工具**:有人把作品放在奇怪的地方?`/aase admin whois` 查是誰放的、`/aase admin remove` 移除、`/aase admin purge <半徑> [玩家]` 先預覽再 `confirm` 才批次清除。**只碰本插件放置的元件**(玩家手放的原版盔甲座不動),而且**不刪玩家的存檔**。
@@ -188,13 +192,15 @@ Share code format: `ShareCode.encode(scene)` = `AASE1:` + URL-safe Base64(gzip(J
 | `/aase save` · `/aase load <名稱>` · `/aase list` · `/aase info` | 存 / 讀 / 清單 / 場景資訊 |
 | `/aase edit` | 綁定並編輯附近既有作品(不產生分身) |
 | `/aase select <編號\|next\|prev>` | 不用工具重新點選,直接切換目前選取的元件(tab 補全會列出場景內的元件編號) |
-| `/aase delete` | 刪除目前選取的元件 |
+| `/aase delete [編號]` | 刪除目前選取的元件,或指定編號的元件(世界優先,找不到實體會明說) |
+| `/aase remove look` · `here [半徑]` · `scene <名稱>` | 預覽收回自己放的作品(預設半徑 8,上限 `admin.max-purge-radius`) |
+| `/aase remove confirm` · `/aase remove cancel` | 30 秒內確認 / 取消收回。存檔不會被刪 |
 | `/aase guide` | 開啟遊戲內操作手冊 |
-| `/aase close` | 停止播放中的動畫並關閉目前的編輯 session |
-| `/aase share` · `/aase import <碼> [名稱]` | 產生分享碼 / 匯入別人的分享碼 |
+| `/aase close [save\|discard]` | 關閉目前的編輯 session;有未存變更會先問。`save` 存了再關,`discard` 不存並收回這份作品 |
+| `/aase share` · `/aase import <碼> [名稱]` | 產生分享碼文字(存成檔案,太長貼不進聊天)/ 匯入 |
 | `/aase export command` · `/aase export function` | 匯出 summon 指令 / mcfunction 資料包(**寫入伺服器檔案,預設限管理員/建築師**) |
 | `/aase clear <半徑>` | 清掉**別人**放在你有建築權之處的元件(絕不碰自己的) |
-| `/aase admin whois` · `/aase admin remove` | 查最近元件是誰放的 / 移除它(**限管理員**) |
+| `/aase admin whois` · `/aase admin remove` | 查最近元件是誰放的(含放置分組與孤兒標記)/ 移除它(**限管理員**) |
 | `/aase admin purge <半徑> [玩家]` · `/aase admin confirm` | 預覽批次清除,再確認執行(**限管理員**) |
 | `/aase reload` | 重載設定(管理) |
 

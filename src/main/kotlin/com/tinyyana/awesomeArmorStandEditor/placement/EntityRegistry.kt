@@ -15,19 +15,47 @@ import java.util.concurrent.ConcurrentHashMap
  * chunk-load indexed). Entities in never-loaded chunks aren't counted, so a determined player
  * could exceed a cap by loading fresh chunks; acceptable for P1 (no world scan on the red-line
  * path). Upgrade path: persist per-owner counts if abuse shows up.
+ *
+ * The index is entity UUID -> [Tag]. Lookups by placement/owner return UUIDs; callers turn them
+ * into live entities with [resolve] (Server.getEntity), which also drops stale entries. Nothing
+ * here iterates a world.
  */
 class EntityRegistry(private val keys: AaseKeys) {
 
-    data class Tag(val owner: UUID, val sceneId: String, val localId: Int)
+    /**
+     * [placement] is null on entities placed by 1.1.0 and earlier (until `/aase edit` migrates them);
+     * [sceneName] is null on those too. [emitter] marks a particle-emitter marker, which is ours but
+     * not an editable element (its localId is the emitter id).
+     */
+    data class Tag(
+        val owner: UUID,
+        val sceneId: String,
+        val localId: Int,
+        val placement: String? = null,
+        val sceneName: String? = null,
+        val emitter: Boolean = false,
+    )
 
     private val byUuid = ConcurrentHashMap<UUID, Tag>()
 
-    fun tag(entity: Entity, owner: UUID, sceneId: String, localId: Int) {
+    fun tag(entity: Entity, owner: UUID, sceneId: String, localId: Int, placement: String, sceneName: String) {
         val pdc = entity.persistentDataContainer
         pdc.set(keys.owner, PersistentDataType.STRING, owner.toString())
         pdc.set(keys.scene, PersistentDataType.STRING, sceneId)
         pdc.set(keys.local, PersistentDataType.INTEGER, localId)
-        byUuid[entity.uniqueId] = Tag(owner, sceneId, localId)
+        pdc.set(keys.placement, PersistentDataType.STRING, placement)
+        pdc.set(keys.sceneName, PersistentDataType.STRING, sceneName)
+        byUuid[entity.uniqueId] = Tag(owner, sceneId, localId, placement, sceneName, isEmitterMarker(entity))
+    }
+
+    /** Back-fill a placement onto a legacy (1.1.0) entity when `/aase edit` binds it. */
+    fun migrate(entity: Entity, placement: String, sceneName: String) {
+        val pdc = entity.persistentDataContainer
+        pdc.set(keys.placement, PersistentDataType.STRING, placement)
+        if (!pdc.has(keys.sceneName, PersistentDataType.STRING)) {
+            pdc.set(keys.sceneName, PersistentDataType.STRING, sceneName)
+        }
+        read(entity)?.let { byUuid[entity.uniqueId] = it }
     }
 
     fun read(entity: Entity): Tag? {
@@ -36,7 +64,12 @@ class EntityRegistry(private val keys: AaseKeys) {
         val scene = pdc.get(keys.scene, PersistentDataType.STRING) ?: return null
         val local = pdc.get(keys.local, PersistentDataType.INTEGER) ?: return null
         return try {
-            Tag(UUID.fromString(owner), scene, local)
+            Tag(
+                UUID.fromString(owner), scene, local,
+                placement = pdc.get(keys.placement, PersistentDataType.STRING),
+                sceneName = pdc.get(keys.sceneName, PersistentDataType.STRING),
+                emitter = pdc.has(keys.emitter, PersistentDataType.STRING),
+            )
         } catch (e: IllegalArgumentException) {
             null
         }
@@ -54,6 +87,22 @@ class EntityRegistry(private val keys: AaseKeys) {
 
     fun forget(uuid: UUID) {
         byUuid.remove(uuid)
+    }
+
+    fun byPlacement(placementId: String): List<UUID> =
+        byUuid.entries.filter { it.value.placement == placementId }.map { it.key }
+
+    fun byOwner(owner: UUID): List<UUID> =
+        byUuid.entries.filter { it.value.owner == owner }.map { it.key }
+
+    /** Live entity for an indexed UUID, or null — in which case the stale index entry is dropped. */
+    fun resolve(uuid: UUID): Entity? {
+        val entity = Bukkit.getEntity(uuid)
+        if (entity == null || !entity.isValid) {
+            byUuid.remove(uuid)
+            return null
+        }
+        return entity
     }
 
     fun ownerCount(owner: UUID): Int = byUuid.values.count { it.owner == owner }

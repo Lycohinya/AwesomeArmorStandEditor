@@ -102,6 +102,12 @@ class ControlPanel(private val plugin: AwesomeArmorStandEditorPlugin) : Listener
                 openDeleteConfirmation(player)
                 return
             }
+            SLOT_RECALL -> {
+                // Preview only (nothing is deleted here). Close first so the chat buttons are clickable.
+                player.closeInventory()
+                guarded(player, "aase.use") { plugin.recall.previewHere(player, null) }
+                return
+            }
             SLOT_CLOSE -> { player.closeInventory(); return }
 
             in PART_SLOTS.keys -> setPart(player, PART_SLOTS.getValue(event.rawSlot))
@@ -243,6 +249,9 @@ class ControlPanel(private val plugin: AwesomeArmorStandEditorPlugin) : Listener
         // misread destroys the player's work. LAVA_BUCKET is what the delete confirmation
         // dialog below already uses for "確定刪除", so the two now read as the same action.
         inv.setItem(SLOT_DELETE, icon(Material.LAVA_BUCKET, "panel.delete"))
+        // Appended after delete so delete keeps the cell players learned. HOPPER = "collect back";
+        // not LAVA_BUCKET/BARRIER, which already mean delete and close.
+        inv.setItem(SLOT_RECALL, icon(Material.HOPPER, "panel.recall"))
 
         // --- Footer ---
         // No-session guidance: when a player opens /aase without having started a scene, place
@@ -383,20 +392,22 @@ class ControlPanel(private val plugin: AwesomeArmorStandEditorPlugin) : Listener
         ).withIndex().associate { (index, flag) -> row(3, 7)[index] to flag }
 
         /**
-         * Row 4 — the scene: state card, presets, save, export, delete.
+         * Row 4 — the scene: state card, presets, save, export, delete, recall.
          *
          * Export keeps its cell even when the player lacks `aase.export.command`; it renders in the
          * "locked" style with the reason instead of disappearing. A left-aligned group has no holes
          * in it, so a vanishing button in the middle of a row would read as "something failed to
          * load", and delete would silently shift under the cursor of anyone who had learned its
-         * position.
+         * position. Recall (1.2.0) was appended after delete for the same reason, so delete is no
+         * longer last in the row; recall only opens a preview, it never deletes on click.
          */
-        private val SCENE = row(4, 5)
+        private val SCENE = row(4, 6)
         val SLOT_INFO = SCENE[0]
         val SLOT_PRESETS = SCENE[1]
         val SLOT_SAVE = SCENE[2]
         val SLOT_EXPORT = SCENE[3]
         val SLOT_DELETE = SCENE[4]
+        val SLOT_RECALL = SCENE[5]
 
         /** Footer: `base = (rows - 1) * 9`, then `?` at `base + 7` and `✕` at `base + 8`. */
         private const val PANEL_FOOTER_BASE = (PANEL_ROWS - 1) * COLUMNS

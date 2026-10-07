@@ -26,6 +26,9 @@ usage:
   select: "<gray>Usage: <aqua>/aase select <element id|next|prev>"
   admin: "<gray>Usage: <aqua>/aase admin <whois|remove|purge <radius> [player]|confirm>"
   clear: "<gray>Usage: <aqua>/aase clear <radius></aqua> (removes other people's elements where you may build)"
+  remove: "<gray>Usage: <aqua>/aase remove <look|here [radius]|scene <name>|confirm|cancel>"
+  close: "<gray>Usage: <aqua>/aase close [save|discard]"
+  delete: "<gray>Usage: <aqua>/aase delete [element id]"
 
 # Admin tools (/aase admin, permission aase.admin): dealing with other people's builds
 admin:
@@ -33,6 +36,9 @@ admin:
   whois: "<gray>Owner <white>{owner}</white> · scene <white>{scene}</white> · element <white>#{id}"
   whois-where: "<gray>At <white>{world} {x} {y} {z}</white>{extra}"
   whois-emitter: " <dark_gray>(particle emitter)"
+  whois-placement: "<gray>Placement <white>{placement}</white>{orphan}"
+  whois-legacy: "legacy, not grouped yet"
+  whois-orphan: " <red>(orphan: no save to bind to)"
   scene-missing: "deleted save"
   removed-one: "<green>Force-removed <white>{owner}</white>'s element <white>#{id}"
   owner-not-found: "<red>No such player: <white>{name}"
@@ -52,6 +58,11 @@ clear:
 session:
   none: "<red>No scene in progress — start one with <aqua>/aase new <name></aqua>"
   closed: "<green>Editing finished (the build stays in the world)"
+  unsaved: "<yellow>You have unsaved changes. What should happen to them?"
+  button-save-close: "<green>[Save and close]"
+  button-discard: "<red>[Discard and recall]"
+  button-continue: "<gray>[Keep editing]"
+  discarded: "<green>Changes discarded and this copy recalled (<white>{count}</white> entities); your save is untouched"
 
 scene:
   new: "<green>Created scene <white>{name}</white> — start placing"
@@ -65,19 +76,50 @@ add:
 
 select:
   none: "<yellow>Right-click an element to select it first"
-  other-scene: "<red>That element belongs to a different scene"
+  other-scene: "<red>That element belongs to a different scene or another placed copy"
   done: "<green>Selected <white>#{id}</white> ({type})"
   bad-id: "<red>No such element id. This scene has: <white>{ids}"
 
 edit:
   begin: "<green>Now editing existing build <white>{name}"
   no-target: "<red>No editable element nearby"
-  no-scene: "<red>No save found for this element"
+  no-scene: "<red>These elements have no save to bind to; recall them with <aqua>/aase remove look</aqua>"
+  only-orphans: "<yellow>Only elements without a save are nearby; recall them with <aqua>/aase remove look</aqua>"
+  button-remove-look: "<yellow>[Recall what you're looking at]"
   not-owner: "<red>That's not your build"
 
 delete:
   ok: "<green>Deleted display <white>#{id}"
   changed: "<yellow>That display is no longer in the build; nothing else was deleted"
+  not-in-world: "<yellow>No entity for <white>#{id}</white> found in the world (it may be in an unloaded chunk). It was removed from the model; if you see it left over later, recall it with <aqua>/aase remove look</aqua>"
+  button-save: "<green>[Save]"
+  button-remove-look: "<yellow>[Recall what you're looking at]"
+
+# Taking your own placed work back out of the world (/aase remove). Saves are never deleted
+remove:
+  look-none: "<yellow>None of your elements nearby; aim at the armor stand you want to recall and try again"
+  not-yours: "<red>That build belongs to <white>{owner}</white>; you can only recall your own"
+  here-none: "<yellow>None of your elements within {radius} blocks"
+  scene-none: "<yellow>No placed copy of <white>{name}</white> found in loaded chunks"
+  preview: "<yellow>This will recall <white>{count}</white> element(s) (<white>{groups}</white> group(s))"
+  preview-emitters: "<gray>plus <white>{count}</white> particle emitter(s)"
+  button-confirm: "<red>[Confirm recall]"
+  button-cancel: "<gray>[Cancel]"
+  button-delete-one: "<yellow>[Delete only element #{id}]"
+  loaded-only: "<dark_gray>Only entities in loaded chunks are affected; your save is kept, so you can /aase load it again"
+  none-pending: "<red>Nothing to confirm; preview first with <aqua>/aase remove look</aqua>, <aqua>here</aqua> or <aqua>scene</aqua>"
+  expired: "<red>Confirmation timed out (30 seconds); preview again"
+  gone: "<yellow>The previewed elements are gone already; nothing was recalled"
+  cancelled: "<gray>Recall cancelled"
+  done: "<green>Recalled <white>{count}</white> entities"
+  session-closed: "<yellow>The build you were editing was recalled, so editing has ended"
+
+# Hints when hitting an element with the tool or a bare hand
+hint:
+  tool-no-session: "<yellow>Bind this build with <aqua>/aase edit</aqua> first, or sneak + left-click to recall it"
+  button-edit: "<aqua>[/aase edit]"
+  punch-own: "<yellow>Recall it with /aase remove look, or sneak + left-click it with the tool"
+  punch-other: "<gray>This build belongs to <white>{owner}</white>"
 
 undo:
   ok: "<green>Undid last adjustment"
@@ -134,8 +176,8 @@ export:
   mcfunction-saved: "<green>Exported the mcfunction datapack to <white>{path}"
 
 share:
-  click: "<yellow>[Click to copy the share code to your clipboard]"
-  hint: "<gray>Give this code to someone — <aqua>/aase import <code></aqua> gets them the same build"
+  click: "<yellow>[Click to copy the share code text to your clipboard]"
+  hint: "<gray>Share code text is usually longer than chat's 256-character limit; keep it in a file to store or pass on, don't paste it into chat"
   import-bad: "<red>That share code is invalid or corrupt — check you copied all of it"
   import-too-big: "<red>That build has too many elements (over your cap of {max}) to import"
   imported: "<green>Imported and placed <white>{name}</white> ({count} elements) — remember to <aqua>/aase save</aqua>"
@@ -243,9 +285,10 @@ help:
   list: "<aqua>/aase list <gray>list your scenes"
   info: "<aqua>/aase info <gray>show info about the current scene"
   export: "<aqua>/aase export command <gray>export a summon command"
-  share: "<aqua>/aase share <gray>generate a share code"
+  share: "<aqua>/aase share <gray>generate share code text (copy it into a file)"
   import: "<aqua>/aase import <code> [name] <gray>import someone's share code"
-  close: "<aqua>/aase close <gray>finish editing (the build stays)"
+  remove: "<aqua>/aase remove look|here|scene <gray>recall your own placed work (saves are kept)"
+  close: "<aqua>/aase close <gray>finish editing (the build stays; asks first if there are unsaved changes)"
 
 panel:
   title: "Display control panel"
@@ -341,6 +384,8 @@ panel:
   export-locked-lore: "<gray>Needs aase.export.command; normal players do not need it, and saving still works</gray>"
   delete: "<red><bold>Delete selected display</bold></red>"
   delete-lore: "<gray>Shows a confirmation screen before deleting anything</gray>"
+  recall: "<gold><bold>Recall builds</bold></gold>"
+  recall-lore: "<gray>Lists your elements within 8 blocks; nothing leaves the world until you confirm, and saves are kept</gray>"
   close: "<gray>Close"
   close-lore: "<gray>Close this screen; the build and current changes stay</gray>"
   confirm-title: "<red><bold>Delete this display?</bold></red>"
@@ -507,9 +552,10 @@ guide:
       <dark_blue>/aase list<black> your saves
       <dark_blue>/aase info<black> scene info
 
-      <black>Share it:
-      <dark_blue>/aase share<black> get code
-      <dark_blue>/aase import code
+      <black>Share code text:
+      <dark_blue>/aase share
+      <black>too long for chat,
+      keep it in a file
     - |-
       <dark_gray>⑨ Export
 
@@ -523,7 +569,21 @@ guide:
       <dark_blue>/aase export function
       <dark_blue>/aase pose save id
     - |-
-      <dark_gray>⑩ Reminders
+      <dark_gray>⑩ Recall a build
+
+      <dark_blue>/aase remove look
+      <black>the one you see
+      <dark_blue>/aase remove here
+      <black>within 8 blocks
+      <dark_blue>/aase remove scene
+      <black>+ name: by name
+
+      <black>Preview first,
+      click to confirm;
+      saves are kept
+      <gray>Tool: sneak+left
+    - |-
+      <dark_gray>⑪ Reminders
 
       <black>· Only your own
       · Land claims are
@@ -531,6 +591,7 @@ guide:
       · Builds stay in
         the world
       · <dark_blue>/aase close<black> ends
+        (asks if unsaved)
 
       <gray>Full manual:
       docs/MANUAL.en.md

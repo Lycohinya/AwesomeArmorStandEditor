@@ -2,6 +2,29 @@
 
 本專案的詳細變更紀錄。格式大致遵循 [Keep a Changelog](https://keepachangelog.com/zh-TW/1.1.0/)。
 
+## [1.2.0] - 2026-10-07
+
+主題:**收回**。以前放錯、不要的作品只有管理員能清,玩家自己只能站著看它留在世界;`new` 之後後悔、`close` 之後想反悔也沒有出路。這版讓玩家自己能把自己放的作品收掉,並讓「一次放置」成為一等概念,兩份複本不再互相牽連。
+
+### Added(新增)
+
+- **`/aase remove look | here [半徑] | scene <名稱> | confirm | cancel`——收回自己放在世界裡的作品。** 權限 `aase.use`,**只動自己的**(`aase.admin` 也不放寬,管理員另有 `/aase admin`)。前三種只預覽(「將收回 N 個元件(M 組)」,有粒子發射器另列),點 `[確認收回]` 或 `/aase remove confirm` 才動手,**30 秒內**有效。`here` 預設半徑 8,上限 `admin.max-purge-radius`;`look` 沒對準時取 `tool.select-range` 內離你最近、自己的元件。只處理**已載入區塊**,存檔**不會被刪**;收回時任何人正在編輯那一份(包含管理員),該 session 一併結束,避免之後存檔把已收回的元件寫回去;每次收回寫一筆 LycoLib 稽核(`scene.remove`)。
+- **`/aase close` 有未存變更時先問。** 給 `[儲存並關閉]`(`/aase close save`)、`[放棄並收回]`(`/aase close discard`:不存檔,收回本份作品的實體與粒子)、`[繼續編輯]`。沒有未存變更時照舊直接關。
+- **`/aase delete [元件編號]`。** 可指定編號(聊天按鈕用,不再依賴「剛好選到誰」)。**世界優先**:先找實體(session 綁定 → 放置分組 + 編號 → 預期位置 2 格內同一放置分組)再移除;不會碰到沒有分組的其他舊複本;找不到時明說「世界中找不到 #N 的實體」,模型照刪,並附 `[儲存]` `[收回看著的作品]`。tab 補全列出場景內的元件編號。
+- **工具手勢:拿工具潛行左鍵打自己的盔甲座 → 預覽收回那一份**(正在編輯同一份時多一顆 `[只刪這個元件 #編號]`);打別人的只顯示擁有者。**只有一般盔甲座(非 marker)打得到**:物品/方塊/文字 Display 與 marker 盔甲座沒有碰撞箱,請用 `remove look` / `here` / `scene` 或控制面板。沒有 session 就拿工具右鍵作品 → 提示先 `/aase edit` 或潛行左鍵收回(附 `[/aase edit]`);空手打作品 → actionbar 提示收回方法或顯示擁有者,3 秒限速一次。
+- **控制面板「收回作品」鍵(漏斗,作品列最右)。** 關閉視窗後列出身邊 8 格內你放的元件,點 `[確認收回]` 才動手。刪除鍵位置不動。
+- **`/aase admin whois` 多一行放置分組**(放置 ID 前 8 碼;舊元件寫「舊版未分組」),沒有存檔可綁定的標「孤兒」。
+- 新增 lang key:`usage.remove` / `usage.close` / `usage.delete`、`session.unsaved` / `session.button-*` / `session.discarded`、`remove.*`、`hint.*`、`delete.not-in-world` / `delete.button-*`、`edit.only-orphans` / `edit.button-remove-look`、`admin.whois-placement` / `whois-legacy` / `whois-orphan`、`panel.recall` / `panel.recall-lore`、`help.remove`(兩份語言檔);遊戲內手冊新增「收回作品」一頁。
+
+### Changed(調整)
+
+- **一次放置 = 一個 placement。** 實體 PDC 新增 `placement`(放置 ID)與 `sceneName`(放置當時的作品名);`load` / `import` / `new` 每次放置都產生新的 placement,元件與粒子發射器一律蓋章。`/aase edit`、`select`、`remove` 都以 placement 為界:**同一份存檔放兩次是兩份獨立的複本,編輯或收回其中一份不會動到另一份。** 1.1.0 以前放的舊作品沒有 placement,**第一次 `/aase edit` 時自動依擁有者 + 作品 + 位置補上分組**(遷移),之後跟新作品一樣。
+- **`/aase edit` 跳過孤兒。** 世界裡的元件若存檔已不存在(或存檔不再列出它的編號),又沒有 session 認領(剛加還沒存的元件不算孤兒),`edit` 不再綁它;附近只剩孤兒時提示 `/aase remove look`。沒有存檔可綁定的錯誤訊息也附上收回按鈕。
+- **切換作品前先問。** 有未存變更時,`new` / `load` / `import` / `edit` 不再默默丟掉目前的 session(以前沒存過的作品會因此變成孤兒),改給與 `close` 相同的三個選項。
+- **離線自動停動畫並結束 session。** 登出 / 斷線時停止播放(實體還原到模型)並關閉 session;**不存檔、不刪作品**,回來用 `/aase edit` 接續。
+- **分享碼文字不再說「貼到聊天給別人」。** `AASE1:` 碼通常超過聊天欄 256 字的上限,貼不進聊天框:`/aase share` 的提示、help、遊戲內手冊與全部文件都改成「存成檔案保存或轉交」。`/aase import` 指令保留;網站 AASE Studio 的短碼匯入預計 1.3.0 推出。
+- 選取別份複本的元件時,訊息改為「那個元件屬於別的場景或別份複本」。管理員的 `remove` / `purge` 與玩家收回共用同一條移除路徑(忘記索引、從 session 脫離、停止粒子 ticker、移除實體)。
+
 ## [Unreleased]
 
 ### Changed(調整)

@@ -40,18 +40,23 @@ class ParticleService(private val plugin: AwesomeArmorStandEditorPlugin, private
         task?.cancel(); task = null
     }
 
-    fun spawnEmitter(origin: Location, sceneId: String, owner: UUID, emitter: ParticleEmitter): Entity {
+    /**
+     * Markers are stamped through the registry like elements (owner/scene/local/placement/sceneName),
+     * so recall by placement finds them; the emitter key is written first so the registry indexes
+     * the marker as an emitter, not an element.
+     */
+    fun spawnEmitter(
+        origin: Location, sceneId: String, owner: UUID, emitter: ParticleEmitter,
+        placementId: String, sceneName: String,
+    ): Entity {
         val loc = origin.clone().add(emitter.offset.x, emitter.offset.y, emitter.offset.z)
         val world = loc.world ?: error("no world")
         val marker = world.spawn(loc, ArmorStand::class.java) {
             it.isMarker = true; it.isInvisible = true; it.isSmall = true
             it.setGravity(false); it.setBasePlate(false)
         }
-        val pdc = marker.persistentDataContainer
-        pdc.set(keys.owner, PersistentDataType.STRING, owner.toString())
-        pdc.set(keys.scene, PersistentDataType.STRING, sceneId)
-        pdc.set(keys.local, PersistentDataType.INTEGER, emitter.id)
-        pdc.set(keys.emitter, PersistentDataType.STRING, encode(emitter))
+        marker.persistentDataContainer.set(keys.emitter, PersistentDataType.STRING, encode(emitter))
+        plugin.registry.tag(marker, owner, sceneId, emitter.id, placementId, sceneName)
         markers[marker] = build(emitter)
         return marker
     }
@@ -69,14 +74,28 @@ class ParticleService(private val plugin: AwesomeArmorStandEditorPlugin, private
         for (world in plugin.server.worlds) for (chunk in world.loadedChunks) indexChunk(chunk)
     }
 
-    fun removeForScene(sceneId: String) {
+    /**
+     * Removes the emitter markers of one placed copy. Not by scene id: several copies of one saved
+     * scene share it, and clearing one copy's emitters must not pull the others'.
+     */
+    fun removeForPlacement(placementId: String): Int {
+        var removed = 0
         val it = markers.keys.iterator()
         while (it.hasNext()) {
             val e = it.next()
-            if (e.persistentDataContainer.get(keys.scene, PersistentDataType.STRING) == sceneId) {
-                if (!e.isDead) e.remove(); it.remove()
+            if (e.persistentDataContainer.get(keys.placement, PersistentDataType.STRING) == placementId) {
+                plugin.registry.forget(e.uniqueId)
+                if (!e.isDead) e.remove()
+                it.remove()
+                removed++
             }
         }
+        return removed
+    }
+
+    /** Drop a marker that was removed by someone else (recall/admin) from the ticking set. */
+    fun forget(entity: Entity) {
+        markers.remove(entity)
     }
 
     private fun run() {

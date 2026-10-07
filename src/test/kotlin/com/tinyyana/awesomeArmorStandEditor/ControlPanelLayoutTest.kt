@@ -61,7 +61,10 @@ class ControlPanelLayoutTest {
             ),
             ControlPanel.PART_SLOTS.keys.sorted() + listOf(ControlPanel.SLOT_AXIS_X, ControlPanel.SLOT_AXIS_Y, ControlPanel.SLOT_AXIS_Z),
             ControlPanel.FLAG_SLOTS.keys.sorted(),
-            listOf(ControlPanel.SLOT_INFO, ControlPanel.SLOT_PRESETS, ControlPanel.SLOT_SAVE, ControlPanel.SLOT_EXPORT, ControlPanel.SLOT_DELETE),
+            listOf(
+                ControlPanel.SLOT_INFO, ControlPanel.SLOT_PRESETS, ControlPanel.SLOT_SAVE,
+                ControlPanel.SLOT_EXPORT, ControlPanel.SLOT_DELETE, ControlPanel.SLOT_RECALL,
+            ),
         )) {
             val rowIndex = group.first() / ControlPanel.COLUMNS
             assertTrue(group.all { it / ControlPanel.COLUMNS == rowIndex }, "$group spans more than one row")
@@ -87,8 +90,16 @@ class ControlPanelLayoutTest {
         assertTrue(ControlPanel.CONFIRM_DELETE - ControlPanel.CONFIRM_CANCEL >= 4)
         assertTrue(ControlPanel.CONFIRM_CANCEL < ControlPanel.CONFIRM_DELETE, "cancel left, destructive right")
         assertTrue(ControlPanel.CONFIRM_SUMMARY < ControlPanel.COLUMNS, "the summary is the first content slot")
-        // Delete is last in its row, so the cursor never lands on it while reaching for close.
         assertTrue(ControlPanel.SLOT_DELETE > ControlPanel.SLOT_SAVE)
         assertTrue(ControlPanel.SLOT_DELETE / ControlPanel.COLUMNS != ControlPanel.SLOT_CLOSE / ControlPanel.COLUMNS)
+    }
+
+    @Test
+    fun `recall was appended after delete and stays off the footer`() {
+        // Delete keeps the cell players learned in 1.1.0 (row 4, column 4); recall takes the next one.
+        assertEquals(4 * ControlPanel.COLUMNS + 4, ControlPanel.SLOT_DELETE)
+        assertEquals(ControlPanel.SLOT_DELETE + 1, ControlPanel.SLOT_RECALL)
+        assertTrue(ControlPanel.SLOT_RECALL in ControlPanel.PANEL_SLOTS)
+        assertTrue(ControlPanel.SLOT_RECALL / ControlPanel.COLUMNS != ControlPanel.SLOT_CLOSE / ControlPanel.COLUMNS)
     }
 }

@@ -2,6 +2,7 @@ package com.tinyyana.awesomeArmorStandEditor.text
 
 import net.kyori.adventure.platform.bukkit.BukkitAudiences
 import net.kyori.adventure.text.Component
+import net.kyori.adventure.text.event.ClickEvent
 import net.kyori.adventure.text.format.TextDecoration
 import net.kyori.adventure.text.minimessage.MiniMessage
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer
@@ -52,6 +53,25 @@ class Texts private constructor(private val audiences: BukkitAudiences) {
 
     fun sendComponent(sender: CommandSender, component: Component) {
         audiences.sender(sender).sendMessage(prefix.append(component))
+    }
+
+    /** A clickable chat button: the lang text, running [command] when clicked. */
+    fun button(key: String, command: String, vararg placeholders: Pair<String, String>): Component =
+        render(key, placeholders).clickEvent(ClickEvent.runCommand(command))
+
+    /** One chat line: the [key] message followed by [buttons], space-separated. */
+    fun sendWithButtons(sender: CommandSender, key: String, buttons: List<Component>, vararg placeholders: Pair<String, String>) {
+        var line = render(key, placeholders)
+        for (b in buttons) line = line.append(Component.space()).append(b)
+        audiences.sender(sender).sendMessage(prefix.append(line))
+    }
+
+    /** A line made only of [buttons]. */
+    fun sendButtons(sender: CommandSender, buttons: List<Component>) {
+        if (buttons.isEmpty()) return
+        var line = buttons.first()
+        for (b in buttons.drop(1)) line = line.append(Component.space()).append(b)
+        audiences.sender(sender).sendMessage(prefix.append(line))
     }
 
     fun raw(key: String): String? = messages[key]

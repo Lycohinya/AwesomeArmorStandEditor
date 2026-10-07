@@ -47,6 +47,11 @@ class AdminTools(private val plugin: AwesomeArmorStandEditorPlugin) {
             "x" to loc.blockX.toString(), "y" to loc.blockY.toString(), "z" to loc.blockZ.toString(),
             "extra" to if (isEmitter(target)) (plugin.texts.raw("admin.whois-emitter") ?: "") else "",
         )
+        plugin.texts.send(
+            admin, "admin.whois-placement",
+            "placement" to (tag.placement?.take(8) ?: plugin.texts.label("admin.whois-legacy")),
+            "orphan" to if (plugin.recall.isOrphan(tag)) (plugin.texts.raw("admin.whois-orphan") ?: "") else "",
+        )
     }
 
     // --- remove one --------------------------------------------------------
@@ -194,19 +199,8 @@ class AdminTools(private val plugin: AwesomeArmorStandEditorPlugin) {
             .filter { entity -> ownerFilter == null || plugin.registry.read(entity)?.owner == ownerFilter }
     }
 
-    private fun remove(entity: Entity) {
-        plugin.registry.forget(entity.uniqueId)
-        detachFromSessions(entity)
-        entity.remove()
-        // Emitter markers drop out of ParticleService's map on its next tick (it skips !isValid).
-    }
-
-    /** An open editor session holds live entity refs; drop the ones we just killed. */
-    private fun detachFromSessions(entity: Entity) {
-        for (session in plugin.sessions.all()) {
-            session.entities.entries.removeIf { it.value.uniqueId == entity.uniqueId }
-        }
-    }
+    /** Same removal path as player recall: forget, detach from sessions, drop from the particle ticker. */
+    private fun remove(entity: Entity) = plugin.recall.removeEntity(entity)
 
     private fun isEmitter(entity: Entity): Boolean =
         entity.persistentDataContainer.has(plugin.keys.emitter, PersistentDataType.STRING)

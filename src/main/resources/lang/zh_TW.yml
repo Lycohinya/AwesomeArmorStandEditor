@@ -26,6 +26,9 @@ usage:
   select: "<gray>用法:<aqua>/aase select <元件編號|next|prev>"
   admin: "<gray>用法:<aqua>/aase admin <whois|remove|purge <半徑> [玩家]|confirm>"
   clear: "<gray>用法:<aqua>/aase clear <半徑></aqua>(清掉別人放在你有建築權的地方的元件)"
+  remove: "<gray>用法:<aqua>/aase remove <look|here [半徑]|scene <名稱>|confirm|cancel>"
+  close: "<gray>用法:<aqua>/aase close [save|discard]"
+  delete: "<gray>用法:<aqua>/aase delete [元件編號]"
 
 # 管理工具(/aase admin,權限 aase.admin):處理別人亂放的作品
 admin:
@@ -33,6 +36,9 @@ admin:
   whois: "<gray>擁有者 <white>{owner}</white> · 作品 <white>{scene}</white> · 元件 <white>#{id}"
   whois-where: "<gray>位置 <white>{world} {x} {y} {z}</white>{extra}"
   whois-emitter: " <dark_gray>(粒子發射器)"
+  whois-placement: "<gray>放置 <white>{placement}</white>{orphan}"
+  whois-legacy: "舊版未分組"
+  whois-orphan: " <red>(孤兒:沒有存檔可綁定)"
   scene-missing: "已刪除的存檔"
   removed-one: "<green>已強制移除 <white>{owner}</white> 的元件 <white>#{id}"
   owner-not-found: "<red>找不到玩家 <white>{name}"
@@ -52,6 +58,11 @@ clear:
 session:
   none: "<red>你還沒有進行中的場景,先用 <aqua>/aase new <名稱></aqua> 開始"
   closed: "<green>已結束編輯(作品保留在世界中)"
+  unsaved: "<yellow>有未儲存的變更,要怎麼處理?"
+  button-save-close: "<green>[儲存並關閉]"
+  button-discard: "<red>[放棄並收回]"
+  button-continue: "<gray>[繼續編輯]"
+  discarded: "<green>已放棄變更並收回這份作品(<white>{count}</white> 個實體),存檔不受影響"
 
 scene:
   new: "<green>已建立場景 <white>{name}</white>,開始擺放吧"
@@ -65,19 +76,50 @@ add:
 
 select:
   none: "<yellow>先右鍵點擊一個元件來選取"
-  other-scene: "<red>那個元件屬於別的場景"
+  other-scene: "<red>那個元件屬於別的場景或別份複本"
   done: "<green>已選取 <white>#{id}</white>({type})"
   bad-id: "<red>沒有這個元件編號,場景裡有:<white>{ids}"
 
 edit:
   begin: "<green>正在編輯既有作品 <white>{name}"
   no-target: "<red>附近沒有可編輯的元件"
-  no-scene: "<red>找不到這個元件的存檔"
+  no-scene: "<red>這組元件沒有存檔可綁定,可以用 <aqua>/aase remove look</aqua> 收回"
+  only-orphans: "<yellow>附近只剩沒有存檔可綁定的元件,可以用 <aqua>/aase remove look</aqua> 收回"
+  button-remove-look: "<yellow>[收回看著的作品]"
   not-owner: "<red>這不是你的作品"
 
 delete:
   ok: "<green>已刪除展示物 <white>#{id}"
   changed: "<yellow>這個展示物已經不在作品裡，沒有刪除其他東西"
+  not-in-world: "<yellow>世界中找不到 <white>#{id}</white> 的實體(可能在未載入區塊),模型已移除;之後看到殘留,用 <aqua>/aase remove look</aqua> 收回"
+  button-save: "<green>[儲存]"
+  button-remove-look: "<yellow>[收回看著的作品]"
+
+# 收回自己放在世界裡的作品(/aase remove)。存檔不會被刪,之後還能再放
+remove:
+  look-none: "<yellow>附近沒有你放置的元件,對準要收回的盔甲座再試一次"
+  not-yours: "<red>這是 <white>{owner}</white> 的作品,只能收回自己的"
+  here-none: "<yellow>半徑 {radius} 格內沒有你放置的元件"
+  scene-none: "<yellow>已載入區塊中找不到你的作品 <white>{name}"
+  preview: "<yellow>將收回 <white>{count}</white> 個元件(<white>{groups}</white> 組)"
+  preview-emitters: "<gray>連同 <white>{count}</white> 個粒子發射器"
+  button-confirm: "<red>[確認收回]"
+  button-cancel: "<gray>[取消]"
+  button-delete-one: "<yellow>[只刪這個元件 #{id}]"
+  loaded-only: "<dark_gray>只處理已載入區塊內的實體;存檔不會被刪,之後可以再 /aase load"
+  none-pending: "<red>沒有待確認的收回,先用 <aqua>/aase remove look</aqua>、<aqua>here</aqua> 或 <aqua>scene</aqua> 預覽"
+  expired: "<red>確認已逾時(30 秒),請重新預覽一次"
+  gone: "<yellow>預覽裡的元件已經不在了,沒有收回任何東西"
+  cancelled: "<gray>已取消收回"
+  done: "<green>已收回 <white>{count}</white> 個實體"
+  session-closed: "<yellow>你正在編輯的這份作品已被收回,編輯已結束"
+
+# 手持工具或空手打元件時的提示
+hint:
+  tool-no-session: "<yellow>先 <aqua>/aase edit</aqua> 綁定這組作品,或潛行左鍵收回"
+  button-edit: "<aqua>[/aase edit]"
+  punch-own: "<yellow>用 /aase remove look 或拿工具潛行左鍵收回"
+  punch-other: "<gray>這是 <white>{owner}</white> 的作品"
 
 undo:
   ok: "<green>已復原上一次調整"
@@ -134,8 +176,8 @@ export:
   mcfunction-saved: "<green>已匯出 mcfunction 資料包到 <white>{path}"
 
 share:
-  click: "<yellow>[點擊複製分享碼到剪貼簿]"
-  hint: "<gray>把這串碼給別人,他們用 <aqua>/aase import <碼></aqua> 就能拿到同一份作品"
+  click: "<yellow>[點擊複製分享碼文字到剪貼簿]"
+  hint: "<gray>分享碼文字通常超過聊天欄 256 字的上限,請存成檔案保存或轉交,不要直接貼在聊天"
   import-bad: "<red>分享碼無效或已損毀,請確認完整複製"
   import-too-big: "<red>這份作品的元件太多(超過你的上限 {max}),無法匯入"
   imported: "<green>已匯入並放置 <white>{name}</white>(共 {count} 個元件),記得 <aqua>/aase save</aqua> 存起來"
@@ -243,9 +285,10 @@ help:
   list: "<aqua>/aase list <gray>列出你的場景"
   info: "<aqua>/aase info <gray>顯示目前場景資訊"
   export: "<aqua>/aase export command <gray>匯出 summon 指令"
-  share: "<aqua>/aase share <gray>產生分享碼(可複製給別人)"
+  share: "<aqua>/aase share <gray>產生分享碼文字(複製後存成檔案)"
   import: "<aqua>/aase import <碼> [名稱] <gray>匯入別人的分享碼"
-  close: "<aqua>/aase close <gray>結束編輯(作品保留)"
+  remove: "<aqua>/aase remove look|here|scene <gray>收回自己放在世界裡的作品(存檔保留)"
+  close: "<aqua>/aase close <gray>結束編輯(作品保留;有未存變更會先問)"
 
 panel:
   title: "展示物控制盤"
@@ -341,6 +384,8 @@ panel:
   export-locked-lore: "<gray>這顆需要 aase.export.command;一般玩家用不到,作品照樣能存</gray>"
   delete: "<red><bold>刪除選取的展示物</bold></red>"
   delete-lore: "<gray>會先顯示確認畫面，不會立刻刪除</gray>"
+  recall: "<gold><bold>收回作品</bold></gold>"
+  recall-lore: "<gray>列出身邊 8 格內你放的元件，確認後才會從世界收回，存檔保留</gray>"
   close: "<gray>關閉"
   close-lore: "<gray>關閉畫面，作品與目前變更都會保留</gray>"
   confirm-title: "<red><bold>確定要刪除嗎？</bold></red>"
@@ -499,9 +544,10 @@ guide:
       <dark_blue>/aase list<black> 我的清單
       <dark_blue>/aase info<black> 場景資訊
 
-      <black>分享給別人:
-      <dark_blue>/aase share<black> 產生碼
-      <dark_blue>/aase import 碼<black> 匯入
+      <black>分享碼文字:
+      <dark_blue>/aase share
+      <black>太長貼不進聊天,
+      存成檔案再轉交
     - |-
       <dark_gray>⑨ 匯出(建築師)
 
@@ -514,12 +560,26 @@ guide:
       <dark_blue>/aase export function
       <dark_blue>/aase pose save id
     - |-
-      <dark_gray>⑩ 小提醒
+      <dark_gray>⑩ 收回作品
+
+      <dark_blue>/aase remove look
+      <black>收回看著的那份
+      <dark_blue>/aase remove here
+      <black>收回身邊 8 格
+      <dark_blue>/aase remove scene
+      <black>加名稱,依名稱收回
+
+      <black>先預覽,點確認
+      才收回,存檔留著
+      <gray>工具潛行左鍵也行
+    - |-
+      <dark_gray>⑪ 小提醒
 
       <black>· 只能改自己的
       · 會尊重領地保護
       · 作品會留在世界
       · <dark_blue>/aase close<black> 結束
+        有未存變更會先問
 
       <gray>完整手冊在
       docs/MANUAL.md

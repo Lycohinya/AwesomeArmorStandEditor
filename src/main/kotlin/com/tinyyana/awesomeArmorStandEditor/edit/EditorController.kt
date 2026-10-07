@@ -16,6 +16,7 @@ import com.tinyyana.awesomeArmorStandEditor.model.Keyframe
 import com.tinyyana.awesomeArmorStandEditor.model.ParticleEmitter
 import com.tinyyana.awesomeArmorStandEditor.model.Scene
 import com.tinyyana.awesomeArmorStandEditor.model.Vec3
+import com.tinyyana.awesomeArmorStandEditor.recall.CloseDecision
 import com.tinyyana.awesomeArmorStandEditor.session.EditMode
 import com.tinyyana.awesomeArmorStandEditor.session.EditSession
 import com.tinyyana.awesomeArmorStandEditor.session.UndoSnapshot
@@ -66,7 +67,7 @@ class EditorController(private val plugin: AwesomeArmorStandEditorPlugin) {
 
     private fun finishAdd(player: Player, session: EditSession, element: Element, mode: EditMode, msgKey: String) {
         val origin = session.origin ?: return
-        val entity = plugin.placement.spawn(origin, session.scene.id, element, player.uniqueId)
+        val entity = plugin.placement.spawn(origin, session.scene.id, element, player.uniqueId, session.placementId, session.scene.name)
         session.scene.elements += element
         session.entities[element.localId] = entity
         session.selectedLocalId = element.localId
@@ -81,7 +82,10 @@ class EditorController(private val plugin: AwesomeArmorStandEditorPlugin) {
     fun select(player: Player, entity: Entity): Boolean {
         val session = plugin.sessions.get(player.uniqueId) ?: return false
         val tag = plugin.registry.read(entity) ?: return false
-        if (tag.sceneId != session.scene.id) {
+        if (tag.emitter) return false
+        // Same saved scene is not enough: another placed copy shares the scene id. A tagged entity
+        // belongs to this session only if it carries this session's placement.
+        if (tag.sceneId != session.scene.id || tag.placement != session.placementId) {
             plugin.texts.send(player, "select.other-scene")
             return false
         }
@@ -208,25 +212,69 @@ class EditorController(private val plugin: AwesomeArmorStandEditorPlugin) {
     }
 
     fun deleteSelected(player: Player) {
-        val elementId = plugin.sessions.get(player.uniqueId)?.selectedLocalId
-            ?: return plugin.texts.send(player, "select.none")
+        val session = plugin.sessions.get(player.uniqueId) ?: return noSession(player)
+        val elementId = session.selectedLocalId ?: return plugin.texts.send(player, "select.none")
         deleteElement(player, elementId)
     }
 
-    /** Deletes the exact element the confirmation screen named, never whatever became selected later. */
+    /**
+     * Deletes the exact element the confirmation screen (or a chat button) named, never whatever
+     * became selected later. World first: the entity is looked up by session binding, then by
+     * (placement, localId) in the registry, then by (placement, localId) within 2 blocks of where
+     * the origin says it stands. Never an untagged entity: that would be another 1.1.0 copy. If none is found the model still drops the
+     * element, and the reply says plainly that nothing was removed from the world.
+     */
     fun deleteElement(player: Player, localId: Int) = withSession(player) { s ->
         val element = s.scene.elements.firstOrNull { it.localId == localId }
             ?: return@withSession plugin.texts.send(player, "delete.changed")
-        plugin.placement.despawn(s, element.localId)
+        val entity = findElementEntity(s, element)
+        if (entity != null) plugin.recall.removeEntity(entity, closeSessions = false)
+        // A recall preview offered "delete just this one" alongside "recall all"; once one is
+        // chosen the other must not still be confirmable.
+        plugin.recall.dropPending(player.uniqueId)
+        s.entities.remove(element.localId)
         s.scene.elements.removeIf { it.localId == element.localId }
         if (s.selectedLocalId == element.localId) s.selectedLocalId = null
         s.dirty = true
-        plugin.texts.send(player, "delete.ok", "id" to element.localId.toString())
+        val save = plugin.texts.button("delete.button-save", "/aase save")
+        if (entity != null) {
+            plugin.texts.sendWithButtons(player, "delete.ok", listOf(save), "id" to element.localId.toString())
+        } else {
+            plugin.texts.send(player, "delete.not-in-world", "id" to element.localId.toString())
+            plugin.texts.sendButtons(
+                player,
+                listOf(save, plugin.texts.button("delete.button-remove-look", "/aase remove look")),
+            )
+        }
+    }
+
+    private fun findElementEntity(s: EditSession, element: Element): Entity? {
+        s.entities[element.localId]?.takeIf { it.isValid }?.let { return it }
+        for (id in plugin.registry.byPlacement(s.placementId)) {
+            val e = plugin.registry.resolve(id) ?: continue
+            val t = plugin.registry.read(e) ?: continue
+            if (!t.emitter && t.placement == s.placementId && t.localId == element.localId) return e
+        }
+        val origin = s.origin ?: return null
+        val expected = plugin.placement.elementLocation(origin, element)
+        val world = expected.world ?: return null
+        return world.getNearbyEntities(expected, 2.0, 2.0, 2.0)
+            .filter { e ->
+                val t = plugin.registry.read(e)
+                t != null && !t.emitter && t.sceneId == s.scene.id && t.localId == element.localId &&
+                    // Only this copy: every session entity carries the session's placement (new
+                    // placements are stamped at spawn, 1.1.0 copies at /aase edit), so an untagged
+                    // entity here can only be another legacy copy.
+                    t.placement == s.placementId &&
+                    e.location.distanceSquared(expected) <= 4.0
+            }
+            .minByOrNull { it.location.distanceSquared(expected) }
     }
 
     // --- scene lifecycle ---
 
     fun openNew(player: Player, name: String) {
+        if (blockedByUnsaved(player)) return
         val scene = Scene(id = UUID.randomUUID().toString(), owner = player.uniqueId.toString(), name = name)
         val session = reopen(player, scene)
         session.origin = player.location.clone()
@@ -238,10 +286,10 @@ class EditorController(private val plugin: AwesomeArmorStandEditorPlugin) {
      * the scheduler task holds the old session in its closure, so dropping the session without
      * stopping leaves an orphaned task posing the old entities forever.
      */
-    private fun reopen(player: Player, scene: Scene): EditSession {
+    private fun reopen(player: Player, scene: Scene, placementId: String = UUID.randomUUID().toString()): EditSession {
         plugin.sessions.get(player.uniqueId)?.let { plugin.animation.stop(it) }
         plugin.sessions.close(player.uniqueId)
-        return plugin.sessions.open(player.uniqueId, scene)
+        return plugin.sessions.open(player.uniqueId, scene, placementId)
     }
 
     fun save(player: Player) = withSession(player) { s ->
@@ -255,6 +303,7 @@ class EditorController(private val plugin: AwesomeArmorStandEditorPlugin) {
 
     /** Places a fresh instance of a saved blueprint at the player. */
     fun loadFresh(player: Player, name: String) {
+        if (blockedByUnsaved(player)) return
         val scene = plugin.store.loadByName(player.uniqueId, name)
             ?: return plugin.texts.send(player, "scene.not-found", "name" to name)
         val origin = player.location.clone()
@@ -266,7 +315,9 @@ class EditorController(private val plugin: AwesomeArmorStandEditorPlugin) {
         // Fresh sessions start unselected; pick the first element so setequip/flag/pose
         // work right after load without hunting for the edit tool first.
         session.selectedLocalId = scene.elements.firstOrNull()?.localId
-        for (emitter in scene.emitters) plugin.particles.spawnEmitter(origin, scene.id, player.uniqueId, emitter)
+        for (emitter in scene.emitters) {
+            plugin.particles.spawnEmitter(origin, scene.id, player.uniqueId, emitter, session.placementId, scene.name)
+        }
         plugin.texts.send(player, "scene.loaded", "name" to name, "count" to scene.elements.size.toString())
     }
 
@@ -274,35 +325,66 @@ class EditorController(private val plugin: AwesomeArmorStandEditorPlugin) {
     private fun firePlace(player: Player, scene: Scene, origin: Location): Boolean =
         !AaseScenePlaceEvent(player, scene, origin).also { plugin.server.pluginManager.callEvent(it) }.isCancelled
 
-    /** Re-bind a session to already-placed art the player is standing near (no duplicate spawn). */
+    /**
+     * Re-bind a session to one placed copy the player is standing near (no duplicate spawn).
+     *
+     * Binding is by placement: only entities stamped with the target's placement join the session,
+     * so editing one copy never moves another copy of the same saved scene. 1.1.0 entities have no
+     * placement; they are grouped by owner + scene + position ([com.tinyyana.awesomeArmorStandEditor.recall.LegacyGrouping])
+     * and stamped with a fresh placement here, after which they behave like new ones.
+     *
+     * Orphans (no save and no open session, or a localId the save no longer lists) and emitter
+     * markers are never picked as the target.
+     */
     fun editFromTarget(player: Player) {
+        if (blockedByUnsaved(player)) return
         val range = plugin.settings.selectRange.toDouble()
-        // Emitter markers are ours too but must never be the target: their emitter id shares
-        // numbers with element localIds, so binding one would resolve to the wrong element and
-        // shift the reconstructed origin by the emitter's offset.
-        val target = player.getNearbyEntities(range, range, range)
+        val savedCache = HashMap<Pair<UUID, String>, com.tinyyana.awesomeArmorStandEditor.recall.SceneIds?>()
+        val nearby = player.getNearbyEntities(range, range, range)
             .filter { plugin.registry.isOurs(it) && !plugin.registry.isEmitterMarker(it) }
-            .minByOrNull { it.location.distanceSquared(player.eyeLocation) }
-            ?: return plugin.texts.send(player, "edit.no-target")
-        val tag = plugin.registry.read(target) ?: return
+            .mapNotNull { e -> plugin.registry.read(e)?.let { e to it } }
+        if (nearby.isEmpty()) return plugin.texts.send(player, "edit.no-target")
+        val bindable = nearby.filter { (_, tag) -> !plugin.recall.isOrphan(tag, savedCache) }
+        if (bindable.isEmpty()) {
+            return plugin.texts.sendWithButtons(
+                player, "edit.only-orphans",
+                listOf(plugin.texts.button("edit.button-remove-look", "/aase remove look")),
+            )
+        }
+        val (target, tag) = bindable.minBy { it.first.location.distanceSquared(player.eyeLocation) }
         if (tag.owner != player.uniqueId && !player.hasPermission("aase.admin")) {
             return plugin.texts.send(player, "edit.not-owner")
         }
         val scene = plugin.store.load(tag.owner, tag.sceneId)
+            ?: return plugin.texts.sendWithButtons(
+                player, "edit.no-scene",
+                listOf(plugin.texts.button("edit.button-remove-look", "/aase remove look")),
+            )
+        val matched = scene.elements.find { it.localId == tag.localId }
             ?: return plugin.texts.send(player, "edit.no-scene")
-        val matched = scene.elements.find { it.localId == tag.localId } ?: return
-        val session = reopen(player, scene)
         val origin = target.location.clone().subtract(matched.offset.x, matched.offset.y, matched.offset.z)
+
+        // Members of this copy: its placement, or the legacy group around the target (migrated below).
+        val placementId = tag.placement ?: UUID.randomUUID().toString()
+        val members: List<Entity> = if (tag.placement != null) {
+            plugin.recall.gather(plugin.registry.byPlacement(placementId), target.location).values
+                .filter { it.second.placement == placementId }
+                .map { it.first }
+        } else {
+            val ids = plugin.recall.legacyGroup(target, tag, scene)
+            val group = ids.mapNotNull { id -> plugin.registry.resolve(id) }
+            for (e in group) plugin.registry.migrate(e, placementId, scene.name)
+            group
+        }
+
+        val session = reopen(player, scene, placementId)
         session.origin = origin
-        val wide = range * 3
-        for (e in player.getNearbyEntities(wide, wide, wide)) {
+        for (e in members) {
             if (plugin.registry.isEmitterMarker(e)) continue
             val t = plugin.registry.read(e) ?: continue
-            if (t.sceneId != scene.id) continue
             val el = scene.elements.find { it.localId == t.localId } ?: continue
-            // Several placed copies share this scene id. Bind the copy the player targeted:
-            // per element, keep the entity closest to where this origin says it should stand —
-            // otherwise anim-stop's restore teleports some other copy's entity onto this one.
+            // One entity per localId; if a copy somehow holds two, keep the one where the origin
+            // says it should stand so anim-stop's restore doesn't teleport the wrong one.
             val expected = plugin.placement.elementLocation(origin, el)
             val current = session.entities[t.localId]
             if (current == null || e.location.distanceSquared(expected) < current.location.distanceSquared(expected)) {
@@ -315,10 +397,60 @@ class EditorController(private val plugin: AwesomeArmorStandEditorPlugin) {
         readout(player, session)
     }
 
-    fun close(player: Player) {
+    /**
+     * `/aase close [save|discard]`. Unsaved changes are never dropped silently: without an argument
+     * a dirty session stays open and the player picks from clickable choices.
+     */
+    fun close(player: Player, arg: String? = null) {
+        val s = plugin.sessions.get(player.uniqueId)
+        when (CloseDecision.decide(s != null, s?.dirty == true, arg)) {
+            CloseDecision.Action.NO_SESSION -> noSession(player)
+            CloseDecision.Action.USAGE -> plugin.texts.send(player, "usage.close")
+            CloseDecision.Action.CLOSE -> endSession(player, "session.closed")
+            CloseDecision.Action.ASK -> askUnsaved(player)
+            CloseDecision.Action.SAVE_THEN_CLOSE -> {
+                if (!player.hasPermission("aase.scene.save")) return plugin.texts.send(player, "system.no-permission")
+                save(player)
+                endSession(player, "session.closed")
+            }
+            CloseDecision.Action.DISCARD -> {
+                val session = s ?: return
+                plugin.animation.stop(session)
+                plugin.sessions.close(player.uniqueId)
+                val center = session.origin ?: player.location
+                val removed = plugin.recall.discardPlacement(player, session.placementId, center)
+                plugin.texts.send(player, "session.discarded", "count" to removed.toString())
+                plugin.texts.send(player, "remove.loaded-only")
+            }
+        }
+    }
+
+    private fun askUnsaved(player: Player) {
+        plugin.texts.send(player, "session.unsaved")
+        plugin.texts.sendButtons(
+            player,
+            listOf(
+                plugin.texts.button("session.button-save-close", "/aase close save"),
+                plugin.texts.button("session.button-discard", "/aase close discard"),
+                plugin.texts.button("session.button-continue", "/aase"),
+            ),
+        )
+    }
+
+    /**
+     * new/load/import/edit replace the open session. Doing that silently over unsaved changes is
+     * how a never-saved scene became an orphan, so it gets the same choice as /aase close.
+     */
+    private fun blockedByUnsaved(player: Player): Boolean {
+        if (plugin.sessions.get(player.uniqueId)?.dirty != true) return false
+        askUnsaved(player)
+        return true
+    }
+
+    private fun endSession(player: Player, key: String) {
         plugin.sessions.get(player.uniqueId)?.let { plugin.animation.stop(it) }  // stop playback, restore entities
-        if (plugin.sessions.close(player.uniqueId) != null) plugin.texts.send(player, "session.closed")
-        else plugin.texts.send(player, "session.none")
+        plugin.sessions.close(player.uniqueId)
+        plugin.texts.send(player, key)
     }
 
     // --- payload / name editing ---
@@ -454,6 +586,7 @@ class EditorController(private val plugin: AwesomeArmorStandEditorPlugin) {
 
     /** Imports a share code as a new scene owned by the importer, placed at their feet. */
     fun importCode(player: Player, code: String, name: String?) {
+        if (blockedByUnsaved(player)) return
         val decoded = ShareCode.decode(code)
             ?: return plugin.texts.send(player, "share.import-bad")
         if (!player.hasPermission("aase.bypass.limit") && decoded.elements.size > plugin.settings.limitPerPlayer) {
@@ -473,7 +606,9 @@ class EditorController(private val plugin: AwesomeArmorStandEditorPlugin) {
         val session = reopen(player, scene)
         plugin.placement.placeAll(session, origin, player.uniqueId)
         session.selectedLocalId = scene.elements.firstOrNull()?.localId
-        for (emitter in scene.emitters) plugin.particles.spawnEmitter(origin, scene.id, player.uniqueId, emitter)
+        for (emitter in scene.emitters) {
+            plugin.particles.spawnEmitter(origin, scene.id, player.uniqueId, emitter, session.placementId, scene.name)
+        }
         session.dirty = true
         LycoLibHook.audit(plugin.name, player.name, "scene.import", "name=${scene.name} elements=${scene.elements.size}")
         plugin.texts.send(player, "share.imported", "name" to scene.name, "count" to scene.elements.size.toString())
@@ -551,13 +686,13 @@ class EditorController(private val plugin: AwesomeArmorStandEditorPlugin) {
         val origin = ensureOrigin(s, player)
         val emitter = ParticleEmitter(id = s.scene.nextEmitterId(), particle = type, offset = offsetOf(player, origin))
         s.scene.emitters += emitter
-        plugin.particles.spawnEmitter(origin, s.scene.id, player.uniqueId, emitter)
+        plugin.particles.spawnEmitter(origin, s.scene.id, player.uniqueId, emitter, s.placementId, s.scene.name)
         s.dirty = true
         plugin.texts.send(player, "particle.added", "type" to type)
     }
 
     fun clearEmitters(player: Player) = withSession(player) { s ->
-        plugin.particles.removeForScene(s.scene.id)
+        plugin.particles.removeForPlacement(s.placementId)
         s.scene.emitters.clear()
         s.dirty = true
         plugin.texts.send(player, "particle.cleared")
@@ -640,7 +775,7 @@ class EditorController(private val plugin: AwesomeArmorStandEditorPlugin) {
                 count = t.count, spread = t.spread, speed = t.speed, rateTicks = t.rate,
             )
             s.scene.emitters += emitter
-            plugin.particles.spawnEmitter(origin, s.scene.id, player.uniqueId, emitter)
+            plugin.particles.spawnEmitter(origin, s.scene.id, player.uniqueId, emitter, s.placementId, s.scene.name)
         }
         s.dirty = true
         plugin.texts.send(player, "preset.fx-applied", "name" to plugin.texts.presetName(preset.id, preset.name))

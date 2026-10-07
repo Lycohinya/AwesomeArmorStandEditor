@@ -44,7 +44,7 @@ class PlacementService(private val registry: EntityRegistry, private val keys: A
         origin.clone().add(element.offset.x, element.offset.y, element.offset.z).apply { yaw = element.yaw }
 
     /** Spawn one element, tag it with ownership PDC, and return the live entity. */
-    fun spawn(origin: Location, sceneId: String, element: Element, owner: UUID): Entity {
+    fun spawn(origin: Location, sceneId: String, element: Element, owner: UUID, placementId: String, sceneName: String): Entity {
         val loc = elementLocation(origin, element)
         val world = loc.world ?: error("Location has no world")
         val entity: Entity = when (element) {
@@ -55,7 +55,7 @@ class PlacementService(private val registry: EntityRegistry, private val keys: A
                 DisplayKind.TEXT -> world.spawn(loc, TextDisplay::class.java) { apply(it, element) }
             }
         }
-        registry.tag(entity, owner, sceneId, element.localId)
+        registry.tag(entity, owner, sceneId, element.localId, placementId, sceneName)
         return entity
     }
 
@@ -63,7 +63,8 @@ class PlacementService(private val registry: EntityRegistry, private val keys: A
     fun placeAll(session: EditSession, origin: Location, owner: UUID) {
         session.origin = origin
         for (element in session.scene.elements) {
-            session.entities[element.localId] = spawn(origin, session.scene.id, element, owner)
+            session.entities[element.localId] =
+                spawn(origin, session.scene.id, element, owner, session.placementId, session.scene.name)
         }
     }
 

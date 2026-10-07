@@ -58,14 +58,18 @@ Animation (P3)
     keyframes: List<Keyframe>  # tick → 目標 pose/transform + 插值型別(linear/step/ease)
 ```
 
-執行期實體不存 NBT 大狀態;實體只掛 PDC 三個 key:`owner`、`sceneId`、`elementLocalId`,其餘狀態以 Scene JSON 為準。
+執行期實體不存 NBT 大狀態;實體只掛 PDC 幾個小 key:`owner`、`scene`(sceneId)、`local`(elementLocalId),1.2.0 起加 `placement`(放置 ID,字串 UUID)與 `sceneName`(放置當時的作品名)。粒子發射器 marker 另有 `emitter`。其餘狀態以 Scene JSON 為準。
+
+**一次放置 = 一個 placement**:`load` / `import` / `new` 每放一次就產生新的 `placement` ID,蓋在該次生成的所有元件與發射器上,session 也持有同一個 ID(`EditSession.placementId`)。`edit` / `select` / `remove` 一律以 placement 為界,所以同一份存檔的兩份複本互不牽連。1.1.0 以前的實體沒有 `placement`(`sceneName` 同),第一次 `/aase edit` 時以「擁有者 + 作品 + 位置」分組後補蓋(`LegacyGrouping`),補完即同新實體。`placement` / `sceneName` 只用於分組與收回,不是真本——存檔才是。
 
 ## 3. 持久化與分享
 
 - 路徑:`plugins/AwesomeArmorStandEditor/scenes/<owner-uuid>/<sceneId>.json`。
 - **不上資料庫**(開源友善、可攜)。存檔就是可讀 JSON。
 - 分享(P1 基本、P4 打磨):匯出 = 複製整份 JSON 檔;之後加 base64+gzip 分享碼與匯入。
-- 存檔是「藍圖」;世界裡的實體是藍圖的一次「放置(placement)」。刪實體不刪存檔;可重複放置同一存檔到不同位置。
+- 存檔是「藍圖」;世界裡的實體是藍圖的一次「放置(placement)」。刪實體不刪存檔;可重複放置同一存檔到不同位置,每次放置各有自己的 placement ID(見 §2)。
+- **孤兒定義**:實體帶本插件的 PDC 但沒有東西能綁它——(a) 該 scene 沒有存檔,且沒有任何開著的 session 認領它的 placement / scene;或 (b) 存檔還在但已不列出它的 localId(發射器與元件各自比對)。若 session 的記憶體模型仍有該 localId(剛加還沒存),不算孤兒。`edit` 跳過孤兒、`admin whois` 標示孤兒,清除走 `/aase remove`。純邏輯在 `recall/RecallLogic.kt`(`OrphanRule`)。
+- **收回**(`recall/RecallService`)只改世界,不碰存檔;查找不走世界掃描:`EntityRegistry` 索引(UUID → Tag,以 `Server.getEntity` 解析)聯集 seed 附近 `getNearbyEntities`,都再用 PDC 過濾,所以只到得了已載入區塊。只處理請求者自己的實體(`aase.admin` 不放寬)。
 
 ## 4. 架構與套件配置(沿用 house 慣例)
 
@@ -141,7 +145,7 @@ aase.limit.<n>           數量上限覆寫(取最大)
 
 ## 8. 效能與安全紅線
 
-- **不做世界掃描 / 區塊掃描**。孤兒實體只在 chunk-load 當下、對已載入區塊處理;計數在記憶體。
+- **不做世界掃描 / 區塊掃描**。chunk-load 只建記憶體索引;孤兒只被標示(whois),由玩家 `/aase remove` 或管理員收回,範圍限已載入區塊;計數在記憶體。
 - **不逐 tick 查 DB / 不逐 tick 解析設定**。設定啟動解析,`/aase reload` 重載。
 - **數量上限**:每人 / 每區塊 / 全域元件上限(config),記憶體計數,超限拒絕放置。
 - **動畫預算(P3)**:只有玩家附近的作品才 tick;Display 動畫走客戶端插值(伺服器只在關鍵影格設一次 transform);盔甲座逐 tick 動畫有硬並發上限 + 距離裁剪 + 每 tick 更新數上限,超限降級(降幀或暫停遠處)。
@@ -156,9 +160,14 @@ aase.limit.<n>           數量上限覆寫(取最大)
 /aase new <name>          新場景並進入編輯
 /aase save                存檔
 /aase load <name>         讀取放置
+/aase edit                綁定附近一份既有放置繼續編輯(跳過孤兒)
+/aase delete [編號]       刪元件(世界優先);省略編號 = 目前選取的
+/aase remove look|here [半徑]|scene <名稱>   預覽收回自己放的作品(只動自己的、只已載入區塊、不刪存檔)
+/aase remove confirm|cancel                  30 秒內確認 / 取消
+/aase close [save|discard]  結束編輯;有未存變更先問,save 存了再關,discard 不存並收回本份
 /aase list                我的場景清單(GUI)
 /aase export command      匯出 summon 指令(可複製)
-/aase share <name>        匯出分享檔(P1 基本)
+/aase share               產生分享碼文字(通常超過聊天 256 字,存成檔案;短碼匯入隨 1.3.0)
 /aase reload              重載設定(管理)
 /aase admin …             管理:編他人、purge、統計
 ```

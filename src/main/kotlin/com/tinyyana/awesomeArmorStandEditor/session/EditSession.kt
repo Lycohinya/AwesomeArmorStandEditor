@@ -19,7 +19,15 @@ enum class EditMode { MOVE, POSE, TRANSLATE, ROTATE, SCALE }
  * Per-player editing state for the scene they currently have open. The [Scene] model is
  * authoritative; live entities are a view kept in sync ([entities] maps element localId -> entity UUID).
  */
-class EditSession(val playerId: UUID, var scene: Scene) {
+class EditSession(
+    val playerId: UUID,
+    var scene: Scene,
+    /**
+     * The placed copy this session edits. Every entity it spawns (elements and emitter markers) is
+     * stamped with this id, so two copies of one saved scene never answer for each other.
+     */
+    val placementId: String = UUID.randomUUID().toString(),
+) {
     /** World anchor this scene's element offsets are relative to. Set when the scene is placed. */
     var origin: org.bukkit.Location? = null
     var selectedLocalId: Int? = null
@@ -48,8 +56,8 @@ class EditSessionManager {
 
     fun get(player: UUID): EditSession? = sessions[player]
 
-    fun open(player: UUID, scene: Scene): EditSession =
-        EditSession(player, scene).also { sessions[player] = it }
+    fun open(player: UUID, scene: Scene, placementId: String = UUID.randomUUID().toString()): EditSession =
+        EditSession(player, scene, placementId).also { sessions[player] = it }
 
     fun close(player: UUID): EditSession? = sessions.remove(player)
 

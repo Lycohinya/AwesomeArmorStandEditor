@@ -69,14 +69,15 @@ After editing config, run `/aase reload` (no restart needed).
 |---|---|
 | **Scene** | One build = one save file. It holds multiple elements + particles + animation. |
 | **Element** | A single node in a scene: one armor stand, or one display entity. Each has an index `#1 #2…`. |
-| **Blueprint vs. world entity** | The save file is a "blueprint"; what you see in the world is one *placement* of that blueprint. Deleting the world entity does not delete the save; the same save can be placed in many locations. |
+| **Blueprint vs. world entity** | The save file is a "blueprint"; what you see in the world is one *placement* of that blueprint. Deleting the world entity does not delete the save; the same save can be placed in many locations, and **each placement is its own copy**: `edit` and `remove` only touch the copy you point at, never the other copies. |
 
 ![Scene, element and placement](assets/concepts.svg)
 
-Two more rules worth remembering:
+Three more rules worth remembering:
 
 - **Ownership**: every element remembers who made it. You can only edit your own; others can't break or take your build.
 - **It persists in the world**: a placed build is a real entity and stays there like any ordinary armor stand. To keep editing it, stand next to it and run `/aase edit` to re-bind — this does **not** create a duplicate.
+- **Placed by mistake or don't want it? Recall it yourself**: `/aase remove` (§13) takes your placed build out of the world and keeps the save. Elements can't be broken, so don't try punching them away.
 
 ## 4. 5-minute quick start (no art skills needed)
 
@@ -107,6 +108,7 @@ Once you land on a pose you like, `/aase pose save MySignature` saves it as your
 7. (Optional) animate: see §12.
 8. `/aase save`.
 9. Later: `/aase load <name>` to place another copy, `/aase edit` to keep editing an existing build, `/aase export …` to export.
+10. Don't want this one anymore: `/aase close` ends the session (it asks first if there are unsaved changes); recall whatever stays in the world with `/aase remove` (§13).
 
 ## 6. The editing tool in detail
 
@@ -119,10 +121,18 @@ Once you land on a pose you like, `/aase pose save MySignature` saves it as your
 | **Right-click** (air/block) | Current axis **+** one step |
 | **Scroll wheel** | Cycle step size (e.g. 1° / 15° / 45°) |
 | **Sneak + scroll** | Switch axis X / Y / Z |
-| **Sneak + left-click** | Switch mode (pose / move / translate / rotate / scale) |
+| **Sneak + left-click** (air/block) | Switch mode (pose / move / translate / rotate / scale) |
 | **Sneak + right-click** | Switch body part (head / body / left-right arm / left-right leg, armor stand pose only) |
+| **Sneak + left-click one of your own armor stands** | Preview recalling that build (same as `/aase remove look`; you still click to confirm) |
 
 ![Edit tool controls](assets/tool-controls.svg)
+
+**Recall gesture details**:
+
+- Hit one of your own armor stands → "This will recall N element(s)" with `[Confirm recall]` and `[Cancel]`; if you are editing that same copy there is an extra `[Delete only element #id]`. Hit someone else's → it only tells you the owner and touches nothing.
+- **Only regular (non-marker) armor stands can be hit.** Item / block / text displays and marker armor stands have no hitbox, so the tool can't click or hit them; use `/aase remove look`, `here`, `scene <name>`, or the control panel's "Recall builds" button.
+- With no session open, right-clicking a build with the tool says "Bind this build with `/aase edit` first, or sneak + left-click to recall it", with an `[/aase edit]` button.
+- Hitting a build bare-handed (or with anything else) shows an actionbar hint on how to recall it, or who owns it; at most once every 3 seconds.
 
 The actionbar shows a live readout: `Stand#1 | Head | Axis Y | Step 15° | Y=+45°`.
 
@@ -145,7 +155,9 @@ The actionbar shows a live readout: `Stand#1 | Head | Axis Y | Step 15° | Y=+45
 - **Body part row**: head / body / left-right arm / left-right leg
 - **Axis + nudge row**: X / Y / Z, step −/+, nudge −/+
 - **Flags row**: small / invisible / no-baseplate / no-gravity / arms / marker / glowing, equipment shortcut
-- **Bottom row**: ✦ preset library, save, export, delete, close
+- **Build row**: state card, preset library, save, export, delete, **Recall builds** (hopper)
+  - "Recall builds" lists your elements within 8 blocks and closes the window; nothing leaves the world until you click `[Confirm recall]` in chat. Saves are kept.
+- **Bottom row**: guide book (📖) and close
 
 ## 8. Preset library
 
@@ -233,19 +245,46 @@ Multiple elements with their own `key` calls animate together. For finer control
 ### Current limitations
 
 - Animation editing is currently command-driven (`/aase anim …`) — there's no visual timeline GUI yet (see §20 roadmap).
-- Live playback only runs inside an editing session; it stops automatically on logout/leave.
+- Live playback only runs inside an editing session; on logout or disconnect it stops automatically and the session ends (the build and any save are untouched).
 
 ## 13. Save, load, share, edit an existing build
 
 - `/aase save` — saves to `scenes/<your-uuid>/<scene-id>.json`.
 - `/aase list` — your list of scenes.
-- `/aase load <name>` — places **a new copy** at your feet (you can place several). The first element is **auto-selected**, so `setequip`/`flag`/presets work right away.
-- `/aase edit` — stand next to an existing build to **re-bind** it as your session and keep editing (no duplicate is created). Note that it selects the element **nearest to you**; in a scene that mixes displays in, follow up with `/aase select` to pick the exact element.
+- `/aase load <name>` — places **a new copy** at your feet (you can place several). The first element is **auto-selected**, so `setequip`/`flag`/presets work right away. **Every placement is its own copy**: place one save twice and `edit` / `remove` on one never affects the other.
+- `/aase edit` — stand next to an existing build to **re-bind** it as your session and keep editing (no duplicate is created). It binds only the **nearest copy**; other placed copies of the same save nearby are not pulled in. Note that it selects the element **nearest to you**; in a scene that mixes displays in, follow up with `/aase select` to pick the exact element.
+  - **Orphans are skipped**: an element whose save is gone (or whose id the save no longer lists), and that no open session claims, is an "orphan"; `edit` never binds it. If only orphans are nearby you get a hint to recall them with `/aase remove look` (with a button).
+  - **Builds placed by 1.1.0 or earlier** are grouped automatically the first time you `/aase edit` them, then behave like new ones. Nothing to do.
 - `/aase select <element id|next|prev>` — **select a specific element** (ids show in tab-complete and `/aase info`; a leading `#` is fine). Displays have no hitbox for the tool to click, so this is the reliable way to move the selection in multi-element scenes; `next`/`prev` cycle through.
-- `/aase close` — ends the editing session (the build stays in the world).
+- `/aase close` — ends the editing session (the build stays in the world). **With unsaved changes it does not just close**; it asks first:
+  - `[Save and close]` (= `/aase close save`): saves, then ends the session; the build stays in the world.
+  - `[Discard and recall]` (= `/aase close discard`): does not save, and recalls **this copy's** entities and particles from the world (no extra confirmation); any existing save is untouched.
+  - `[Keep editing]`: does nothing.
+  - With no unsaved changes, `/aase close` just ends the session.
+- Going offline (quit, disconnect) stops any playing animation and ends the session; **nothing is saved and nothing is removed**. The build stays in the world; use `/aase edit` to pick it up again.
+- `/aase delete [element id]` — deletes the selected element, or the one you name (`/aase delete 3`). **World first**: the entity is removed, then the element leaves the build. If no entity can be found in the world (for example its chunk is not loaded), it says so plainly ("No entity for #3 found in the world"), still drops the element from the model, and gives you `[Save]` and `[Recall what you're looking at]` buttons. Remember to save afterwards.
 - `/aase info` — current scene info (element count, armor stands/displays, emitters, animation, selection, save state).
-- **Share code (recommended)**: `/aase share` → chat shows a **click-to-copy** share code (`AASE1:...`, a compressed scene); paste it to someone else, and their `/aase import <code> [new name]` places the same build at their feet (ownership becomes theirs, with a new id — your save is unaffected). Import is gated by the per-player element cap; an invalid code just reports "invalid," never an error.
+- **Share code text**: `/aase share` → chat shows `[Click to copy the share code text to your clipboard]` (`AASE1:...`, a compressed scene). **The code is usually longer than chat's 256-character limit, so it can't be pasted into the chat box**; paste it into a text file to keep or pass on. The `/aase import <code> [new name]` command still exists (ownership becomes the importer's, with a new id; gated by the per-player element cap; an invalid code reports "invalid"), but it is of no use when the code doesn't fit in chat. **Short-code import via the AASE Studio website is coming in 1.3.0**; until then use file sharing below.
 - **File sharing**: the JSON file is portable too — hand someone `scenes/…/xxx.json` and have them drop it into their own `scenes/<their-uuid>/` (remember to edit the `owner` field inside).
+
+### Recalling your own placed work (`/aase remove`)
+
+Placed it in the wrong spot, don't want it, regret a `new`? Elements can't be broken, so use these commands. Permission `aase.use`; they **only touch what you placed** (admins too; touching other people's builds goes through `/aase admin`).
+
+| Command | What it recalls |
+|---|---|
+| `/aase remove look` | The build you are looking at; if you aren't aiming at one, your own nearest element within range (`tool.select-range`, default 6 blocks) |
+| `/aase remove here [radius]` | All your elements within the radius around you. Default 8 blocks, capped by `admin.max-purge-radius` (default 64) |
+| `/aase remove scene <name>` | By build name: every placed copy made from that name (the name may contain spaces) |
+| `/aase remove confirm` / `cancel` | Confirm / cancel the last preview |
+
+It is **two-stage**: the first three only **preview**, saying "This will recall N element(s) (M group(s))" (particle emitters are listed separately); click `[Confirm recall]` (or run `/aase remove confirm`) to actually do it. You have **30 seconds** to confirm; after that, preview again.
+
+- **Saves are never deleted.** You can `/aase load` the build again any time.
+- **Only entities in loaded chunks are affected** (the plugin never scans the world), and the message says so; walk over to load the chunk first if needed.
+- If the copy you are currently editing is recalled, your editing session ends with it.
+- Leftover elements that have no save to bind to (orphans) are cleaned up the same way; `/aase edit` hands you the button when it can't bind them.
+- Every recall writes a LycoLib audit entry (silently skipped when LycoLib is absent).
 
 ## 14. Export
 
@@ -291,12 +330,15 @@ Usage: drop the folder into the world's `datapacks/`, run `/reload`, then:
 | `/aase setblock/settext/setitem/setname/setequip/flag …` | Edit content | aase.use |
 | `/aase particle add <type>` / `clear` | Particles | aase.use |
 | `/aase anim key/length/loop/play/stop/clear` | Animation | aase.animate |
-| `/aase save` / `load <name>` / `list` / `info` / `edit` / `delete` | Save/load/list/info/edit/delete | aase.use / aase.scene.save |
-| `/aase share` / `import <code> [name]` | Share code / import | aase.scene.share |
+| `/aase save` / `load <name>` / `list` / `info` / `edit` | Save/load/list/info/edit | aase.use / aase.scene.save |
+| `/aase delete [element id]` | Delete the selected (or the named) element; world first | aase.use |
+| `/aase remove look` / `here [radius]` / `scene <name>` | Preview recalling your own placed work (yours only) | aase.use |
+| `/aase remove confirm` / `cancel` | Confirm / cancel a recall within 30 seconds | aase.use |
+| `/aase share` / `import <code> [name]` | Share code text (keep it in a file) / import | aase.scene.share |
 | `/aase pose save <id> [name]` | Save into the shared preset library | **aase.preset.save (default: OP)** |
 | `/aase export command` / `export function` | Export (writes server files) | **aase.export.command (default: OP)** |
-| `/aase close` | End editing session | aase.use |
-| `/aase admin whois` | Show who placed the nearest element | **aase.admin (default: OP)** |
+| `/aase close [save\|discard]` | End the session; asks first if there are unsaved changes. `save` saves then closes, `discard` doesn't save and recalls this copy | aase.use (`close save` also needs aase.scene.save) |
+| `/aase admin whois` | Show who placed the nearest element, which placement it belongs to, and whether it is an orphan | **aase.admin (default: OP)** |
 | `/aase admin remove` | Remove the nearest element | **aase.admin (default: OP)** |
 | `/aase admin purge <radius> [player]` | Preview elements to remove within the radius | **aase.admin (default: OP)** |
 | `/aase admin confirm` | Execute the previewed purge | **aase.admin (default: OP)** |
@@ -325,7 +367,7 @@ aase.bypass.limit        bypass element caps — default: OP
 
 ### Moderation: when someone dumps builds where they shouldn't (`/aase admin`)
 
-1. `/aase admin whois` — stand next to it and find out **who placed it**, which scene it belongs to, and its coordinates.
+1. `/aase admin whois` — stand next to it and find out **who placed it**, which scene it belongs to, and its coordinates. A second line shows the **placement** (first 8 characters of the placement id; builds placed by 1.1.0 or earlier say "legacy, not grouped yet"), and an element with no save to bind to is marked **(orphan: no save to bind to)**.
 2. `/aase admin remove` — remove the nearest element (no editing session required).
 3. To clear an area: `/aase admin purge <radius> [player]` only **previews** how many elements would go; `/aase admin confirm` (within 60 seconds) actually does it.
 
@@ -339,7 +381,7 @@ Deliberate boundaries — do not mistake this for a general entity remover:
 
 ## 17. Configuration files
 
-- **config.yml**: `language` (`auto` / `zh_TW` / `en`), tool material, step sizes, per-player/per-chunk/global element caps, region-event-probe toggle, particle budget and range.
+- **config.yml**: `language` (`auto` / `zh_TW` / `en`), tool material, step sizes, per-player/per-chunk/global element caps, region-event-probe toggle, particle budget and range, `admin.max-purge-radius` (default 64; also the cap for players' `/aase remove here` radius).
 - **presets.yml**: pose and effect presets (angles in degrees, freely editable; `/aase pose save` writes here). A preset's **display name** comes from `preset.name.<id>` in the lang file; presets you save yourself have no such key and show the `name` from presets.yml.
 - **lang/zh_TW.yml, lang/en.yml**: every player-facing string (MiniMessage; command names use `<aqua>`, click hints use `<yellow>`), plus `guide.pages` — the in-game paginated book (parchment background, so use dark colors). To add a language, copy a file, rename it, and point `language` at it.
 
@@ -359,7 +401,15 @@ All of the above take effect with `/aase reload`, no restart needed.
 
 **⚠ Admins: `/kill` goes straight through the protection.** Vanilla armor stands are removed outright by `BYPASSES_INVULNERABILITY` damage (`/kill`, the void) without firing `EntityDamageEvent`, so this plugin's listener never sees it. `/kill @e[type=armor_stand]` will wipe every build on the server, hand-placed vanilla stands included. Use `/aase clear` or `/aase admin remove|purge` — they only ever touch entities this plugin tagged.
 
-**Q: `load` after editing creates two copies?** `load` always places **a new copy**. To keep editing an existing build, use `/aase edit`.
+**Q: `load` after editing creates two copies?** `load` always places **a new copy**. To keep editing an existing build, use `/aase edit`. Recall the one you don't want with `/aase remove look`.
+
+**Q: I regret a `/aase new` and something is left in the world?** Run `/aase close` first and pick `[Discard and recall]` at the "unsaved changes" prompt; that copy leaves the world (a brand-new scene has no save yet; an existing save is untouched). If you already closed the session, stand next to it and use `/aase remove look` (or `here`).
+
+**Q: `/aase edit` says "no save to bind to" or "only elements without a save are nearby"?** Those are orphans (the save is gone, or the save no longer lists their id). Follow the hint and recall them with `/aase remove look`.
+
+**Q: The tool's sneak + left-click can't hit my display / marker armor stand?** Those two have no hitbox, so the gesture can't reach them. Use `/aase remove look`, `here [radius]`, `scene <name>`, or the control panel's "Recall builds".
+
+**Q: `/aase delete` says no entity was found in the world?** Usually the element's chunk isn't loaded. The element is already gone from the model (remember to save); if you later see a leftover on site, recall it with `/aase remove look`.
 
 **Q: A scene has several armor stands and the second one won't take equipment?** `setequip` acts on the **currently selected** element, and `/aase edit` binds the entity **nearest to you** — when the scene mixes in displays (block/text/item), you think you selected the stand but actually got a display next to it, so you keep seeing "only armor stands wear equipment." Use `/aase select <id>` to pick that stand directly (tab-complete lists the ids), then `setequip`.
 
@@ -384,7 +434,7 @@ Next steps towards a "full animation tool" (not yet built):
 - **Visual timeline GUI**: drag keyframes, scrub a preview, replacing the current `/aase anim` commands.
 - **In-between pose helper**: pick two saved poses, generate the animation between them with one click.
 - **Easing**: ease-in/out beyond linear, for more natural motion.
-- **Better share codes / one-click import**: compress a build or preset pack into a shareable code.
+- **Short-code import (planned for 1.3.0)**: share code text is too long for the chat box, so short-code import is planned alongside the AASE Studio website.
 - **More external API / events**: let other plugins hook into our save/place events.
 - **Drag-and-drop equipment GUI**, a visual editor for particles/animation.
 
