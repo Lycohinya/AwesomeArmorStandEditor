@@ -13,6 +13,10 @@ dependencies {
     // Compile against paper-api (a superset of the Bukkit/Spigot API that's easy to resolve).
     // DISCIPLINE: only Bukkit/Spigot-API methods may be used — no Paper-only calls — so the jar
     // runs on plain Spigot without NoSuchMethodError. See docs/DESIGN.md §0.
+    // The one exception is sched/RegionScheduling.kt: Folia's entity/region/global schedulers live there
+    // and nowhere else, and Scheduling.create() loads it only when the server has them. Everything else
+    // schedules through the Scheduling interface (BukkitScheduling on Spigot). Do not "simplify" this to
+    // plain runTask: on Folia that lane owns no region and entity work from it throws.
     compileOnly(libs.paper.api)
     // stdlib provided at runtime via plugin.yml `libraries:`, NOT shaded.
     compileOnly(libs.kotlin.stdlib)

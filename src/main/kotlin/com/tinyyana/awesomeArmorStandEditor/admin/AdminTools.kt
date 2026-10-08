@@ -21,6 +21,9 @@ import java.util.concurrent.ConcurrentHashMap
  *    solves "get this out of my world"; the owner can still re-place it somewhere sane.
  *  - Radius purge is irreversible and hits other people's work, so it is two-stage: preview, then
  *    an explicit /aase admin confirm within [PendingPurge.TTL_MILLIS].
+ *  - On a regionized server a box query only reaches what the admin's own region owns (asking for more
+ *    would throw), so a radius that crosses into another region stops at the border, the same way
+ *    unloaded chunks do. Every command here is player-only, so it already runs on that region's thread.
  */
 class AdminTools(private val plugin: AwesomeArmorStandEditorPlugin) {
 
@@ -183,18 +186,19 @@ class AdminTools(private val plugin: AwesomeArmorStandEditorPlugin) {
     /** Same targeting rule as /aase edit: nearest owned entity within the tool's select range. */
     private fun nearestOwned(admin: Player): Entity? {
         val range = plugin.settings.selectRange.toDouble()
-        return admin.getNearbyEntities(range, range, range)
-            .filter { plugin.registry.isOurs(it) }
-            .minByOrNull { it.location.distanceSquared(admin.eyeLocation) }
+        val eye = admin.eyeLocation
+        return plugin.scheduling.nearbyEntities(eye, range) { plugin.registry.isOurs(it) }
+            .minByOrNull { it.location.distanceSquared(eye) }
     }
 
-    /** Bounded lookup over loaded chunks only — never a world scan. Box query, then true sphere. */
+    /**
+     * Bounded lookup over loaded chunks only — never a world scan. Box query (clamped to the calling
+     * region's chunks), then true sphere.
+     */
     private fun ownedNear(center: Location, radius: Int, ownerFilter: UUID?): List<Entity> {
-        val world = center.world ?: return emptyList()
         val r = radius.toDouble()
         val rSq = r * r
-        return world.getNearbyEntities(center, r, r, r)
-            .filter { plugin.registry.isOurs(it) }
+        return plugin.scheduling.nearbyEntities(center, r) { plugin.registry.isOurs(it) }
             .filter { it.location.distanceSquared(center) <= rSq }
             .filter { entity -> ownerFilter == null || plugin.registry.read(entity)?.owner == ownerFilter }
     }

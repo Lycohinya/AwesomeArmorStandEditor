@@ -27,7 +27,7 @@ object PermissiveGuard : RegionGuard {
  * this player build at this block?") and we obey the answer ourselves. Every code path that spawns
  * or teleports an element must call this; nothing downstream will catch a missed one.
  *
- * Must be called on the main thread (edit handlers already are). The event constructor is the
+ * Must be called on the thread that owns the location (edit handlers already are). The event constructor is the
  * public non-deprecated one; EntityPlaceEvent is @ApiStatus.Internal and needs an already-spawned
  * entity, so it cannot serve as a pre-check.
  *

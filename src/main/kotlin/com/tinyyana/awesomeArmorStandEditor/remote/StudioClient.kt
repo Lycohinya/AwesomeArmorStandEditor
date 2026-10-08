@@ -24,7 +24,7 @@ import java.util.concurrent.atomic.AtomicReference
 /**
  * Outbound-only HTTPS client for Pose Pavilion (`GET /api/scenes/<code>.json`, `POST /api/scenes`).
  * The plugin never listens on a port. Every result is a value (no exceptions escape the futures);
- * futures complete off the main thread — callers hop back with the Bukkit scheduler.
+ * futures complete off the tick threads — callers hop back with PlayerTasks.
  *
  * Trust boundary: the body is read with a byte cap ([RemoteSettings.maxBytes]) and a deadline, parsed
  * strictly and validated against the scene schema before anything reaches the placement code.

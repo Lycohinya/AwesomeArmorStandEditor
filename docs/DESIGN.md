@@ -5,8 +5,10 @@
 ## 0. 定位與硬規則
 
 - **可開源、上架 SpigotMC**:程式碼與命名對外界友善,所有玩家可見文字外部化到 `lang/<代碼>.yml`(附繁中與英文,依伺服器地區自動選,可被覆寫/翻譯)。
-- **完全獨立、跨平台(Spigot + Paper)**:不硬依賴任何插件(含 LycoLib)。外部使用者一載即可用,丟 Spigot 不 crash、正常運作。
+- **完全獨立、跨平台(Spigot + Paper + Folia)**:不硬依賴任何插件(含 LycoLib)。外部使用者一載即可用,丟 Spigot 不 crash、正常運作。
   - **只用 Bukkit/Spigot API 面**,不碰 Paper-only 方法(否則 Spigot 端 `NoSuchMethodError`)。踩雷點:用 `World.rayTraceEntities` 不用 Paper `getTargetEntity`;`TextDisplay.setText(String)` 不用 `text(Component)`;文字一律走自帶 audience 不用 Paper 原生 `sendMessage(Component)`;物品序列化用 `BukkitObjectStream` 不用 Paper `serializeAsBytes`。
+  - **排程只走 `sched/Scheduling`,有兩個實作,不要合併或改回 `runTask`**:`BukkitScheduling`(Spigot,一般 BukkitScheduler)與 `RegionScheduling`(Paper/Folia/Lecithin,entity / region / global / async scheduler)。Folia 的「主執行緒」不擁有任何區域,從那裡碰實體或方塊會丟例外,所以每件工作都要交給擁有它的執行緒:實體 → `runForEntity`(或 `onOwner`),某位置 → `runAt`,與世界無關 → `runGlobal`。**Paper-only 的類別(`io.papermc.paper.threadedregions.*`、`teleportAsync`、`Server.isOwnedByCurrentRegion`)只准出現在 `RegionScheduling`**,`Scheduling.create()` 偵測到伺服器有這些 API 才載入它,Spigot 永遠不會碰到它;其餘程式碼不得出現 `server.scheduler` / `BukkitRunnable` / `runTask*`(`rg "server\.scheduler|Bukkit\.getScheduler|BukkitRunnable|BukkitTask|runTaskTimer|runTaskLater" src/main` 只能命中 `BukkitScheduling.kt`)。`plugin.yml` 的 `folia-supported: true` 是對 Folia 的宣告,新增功能必須維持這個前提。
+  - **區域規則**:一個執行緒只能讀寫自己擁有的實體/區塊。方塊範圍查詢(`getNearbyEntities`)的盒子超出自己擁有的區域會丟例外,所以一律用 `Scheduling.nearbyEntities`(半徑會縮到邊界內);共用狀態用 `ConcurrentHashMap`;跨區域的實體只用索引裡的 Tag 判斷,寫入交給 `onOwner`。
   - **文字用打包(shade+relocate)的 Adventure + MiniMessage**,經 `BukkitAudiences` 送:Spigot/Paper 一致的現代文字 + 匯出指令一鍵點擊複製。relocate 到 `com.tinyyana.awesomeArmorStandEditor.libs.kyori.*`。
 - **不反向依賴外部插件**。與外部整合一律用三種手段之一:
   1. **Bukkit 權限節點** — 任何權限插件(LuckPerms…)透明支援,零依賴。
@@ -72,12 +74,12 @@ Animation (P3)
 - 路徑:`plugins/AwesomeArmorStandEditor/scenes/<owner-uuid>/<sceneId>.json`。
 - **不上資料庫**(開源友善、可攜)。存檔就是可讀 JSON。
 - 分享:`/aase share` 上傳到擺景亭取短碼(`share.upload`),失敗或關閉時給 `AASE1:` 分享碼文字(gzip + URL-safe Base64 的 v3 JSON);兩者都**去識別**(剝 `owner` / `id` / `lastAnchor`)。整份 JSON 檔也可直接轉交。
-- **遠端匯入的信任邊界**(`remote/`):`/aase import <短碼|網址>` 是插件唯一的網路行為,**只 outbound**(`java.net.http.HttpClient`,不開監聽 port);`base-url` 只接受 https(http 只限 localhost / 127.0.0.1),不跟隨轉址。回應邊讀邊計數,超過 `max-bytes`(預設 1 MiB)立即中止;連線與整體各有逾時;每人 cooldown、全服同時數上限。內容先嚴格 JSON 解析、再 schema + 語意驗證,通過後回主執行緒(Bukkit scheduler `runTask`,玩家已離線就丟棄),再走與 `load` 相同的守門:未存變更詢問 → 每人元件上限 → `checkLimits` → `checkRegion` → `AaseScenePlaceEvent` → 新 placement、重新擁有。`enabled: false` 時不建立 HttpClient 也不開執行緒。外來字串(作品名、錯誤訊息)放進 MiniMessage 前先跳脫。
+- **遠端匯入的信任邊界**(`remote/`):`/aase import <短碼|網址>` 是插件唯一的網路行為,**只 outbound**(`java.net.http.HttpClient`,不開監聽 port);`base-url` 只接受 https(http 只限 localhost / 127.0.0.1),不跟隨轉址。回應邊讀邊計數,超過 `max-bytes`(預設 1 MiB)立即中止;連線與整體各有逾時;每人 cooldown、全服同時數上限。內容先嚴格 JSON 解析、再 schema + 語意驗證,通過後回玩家自己的執行緒(`PlayerTasks` → `Scheduling.runForEntity`:Spigot 是主執行緒,Folia 是玩家所在區域;玩家已離線就丟棄),再走與 `load` 相同的守門:未存變更詢問 → 每人元件上限 → `checkLimits` → `checkRegion` → `AaseScenePlaceEvent` → 新 placement、重新擁有。`enabled: false` 時不建立 HttpClient 也不開執行緒。外來字串(作品名、錯誤訊息)放進 MiniMessage 前先跳脫。
   - **不受信任來源一律嚴格驗證**:AASE1 分享碼、遠端短碼與任何外部 JSON 都走 `SceneCodec.decode`(預設 untrusted)→ `SceneValidator`,不論 `schemaVersion`(2 或缺省也一樣;schema 本身就描述了 v2 的弧度 pose、四元數、base64 物品與 `payload`)。只有 `SceneStore` 讀自己的存檔用 `trusted = true`,v2/缺省走舊的寬鬆讀取,舊存檔不會讀不出來。驗證順序:解析前用字元掃描算巢狀深度(略過字串內容與跳脫),超過 64 層在 `""` 報 `nesting too deep`;解析後每個數字必須是有限數(Gson 把 `1e999` 取成 double 是 Infinity),否則在該數字報 `must be a finite number`;之後才是 schema 與語意。schema 數值範圍:offset(元素、粒子、關鍵影格)與 translation ±256、scale ±64(負值為鏡像)、yaw/poseDeg/rotationDeg ±3600、粒子 count 0–1000、rateTicks 1–1200、lengthTicks 1–72000、tick 0–72000、各種 id ≤ 2147483647。網站 `validate.ts` 用同一份 schema、同樣順序,invalid fixtures 兩邊第一個 pointer 必須相同。AASE1 匯入失敗時回覆前 3 個 pointer(與遠端匯入同格式)。
   - **物品 base64 是信任邊界**:`bukkit` 欄位(以及 v2 分享碼的裝備)會進 `BukkitObjectInputStream`,也就是 Java 反序列化任何人都能 POST 的位元組。`ItemCodec.decode` 掛 `ObjectInputFilter` 白名單(Bukkit `Wrapper`、Guava 不可變集合、`java.util` 常用集合、基本型別包裝與字串,外加深度/參照數/位元組數/陣列長度上限),其他類別一律拒絕,擋掉反序列化 gadget。物品**內容**仍可偽造(任意附魔、其他插件信任的自訂資料)——`id + components` 本來就做得到——所以展示品上的物品永遠不能回到玩家手上:裝備選單只複製游標、拿不出東西;原版取裝備被擋;本插件實體死亡時清空掉落物。
 - 存檔是「藍圖」;世界裡的實體是藍圖的一次「放置(placement)」。刪實體不刪存檔;可重複放置同一存檔到不同位置,每次放置各有自己的 placement ID(見 §2)。
 - **孤兒定義**:實體帶本插件的 PDC 但沒有東西能綁它——(a) 該 scene 沒有存檔,且沒有任何開著的 session 認領它的 placement / scene;或 (b) 存檔還在但已不列出它的 localId(發射器與元件各自比對)。若 session 的記憶體模型仍有該 localId(剛加還沒存),不算孤兒。`edit` 跳過孤兒、`admin whois` 標示孤兒,清除走 `/aase remove`。純邏輯在 `recall/RecallLogic.kt`(`OrphanRule`)。
-- **收回**(`recall/RecallService`)只改世界,不碰存檔;查找不走世界掃描:`EntityRegistry` 索引(UUID → Tag,以 `Server.getEntity` 解析)聯集 seed 附近 `getNearbyEntities`,都再用 PDC 過濾,所以只到得了已載入區塊。只處理請求者自己的實體(`aase.admin` 不放寬)。
+- **收回**(`recall/RecallService`)只改世界,不碰存檔;查找不走世界掃描:`EntityRegistry` 索引(UUID → Tag,以 `Server.getEntity` 解析)聯集 seed 附近 `Scheduling.nearbyEntities`,都再用 PDC 過濾,所以只到得了已載入區塊(Folia 上還限於呼叫者所在區域;索引命中的跨區域實體用 Tag 判斷,移除交給它的擁有者執行緒)。只處理請求者自己的實體(`aase.admin` 不放寬)。
 
 ## 4. 架構與套件配置(沿用 house 慣例)
 

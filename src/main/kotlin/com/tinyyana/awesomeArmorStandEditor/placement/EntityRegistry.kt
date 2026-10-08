@@ -19,6 +19,10 @@ import java.util.concurrent.ConcurrentHashMap
  * The index is entity UUID -> [Tag]. Lookups by placement/owner return UUIDs; callers turn them
  * into live entities with [resolve] (Server.getEntity), which also drops stale entries. Nothing
  * here iterates a world.
+ *
+ * Threading: the index is a ConcurrentHashMap, so it may be read and written from any region thread.
+ * The entities themselves are not: on a regionized server [resolve] can hand back an entity owned by
+ * another region, and only that region's thread may read its PDC or change it.
  */
 class EntityRegistry(private val keys: AaseKeys) {
 
@@ -95,7 +99,14 @@ class EntityRegistry(private val keys: AaseKeys) {
     fun byOwner(owner: UUID): List<UUID> =
         byUuid.entries.filter { it.value.owner == owner }.map { it.key }
 
-    /** Live entity for an indexed UUID, or null — in which case the stale index entry is dropped. */
+    /** The indexed tag for [uuid], without touching the entity (so it is safe for entities owned elsewhere). */
+    fun tagOf(uuid: UUID): Tag? = byUuid[uuid]
+
+    /**
+     * Live entity for an indexed UUID, or null — in which case the stale index entry is dropped.
+     * The lookup is a concurrent map read (Level.getEntity(uuid)), so it works from any thread; the
+     * returned entity may still belong to another region (check `Scheduling.isOwnedHere` before using it).
+     */
     fun resolve(uuid: UUID): Entity? {
         val entity = Bukkit.getEntity(uuid)
         if (entity == null || !entity.isValid) {
@@ -111,14 +122,12 @@ class EntityRegistry(private val keys: AaseKeys) {
 
     fun countInChunk(chunk: Chunk): Int = chunk.entities.count { isOurs(it) }
 
-    /** Index our tagged entities in a single (already-loaded) chunk. Not a world scan. */
-    fun indexChunk(chunk: Chunk) {
-        for (e in chunk.entities) read(e)?.let { byUuid[e.uniqueId] = it }
-    }
-
-    /** One-time startup index of entities in currently-loaded chunks. */
-    fun indexLoaded() {
-        for (world in Bukkit.getWorlds()) for (chunk in world.loadedChunks) indexChunk(chunk)
+    /**
+     * Index our tagged entities among [entities] (a loaded chunk's, or an `EntitiesLoadEvent`'s). Must run
+     * on the thread that owns them, since it reads their PDC. Not a world scan.
+     */
+    fun indexEntities(entities: Collection<Entity>) {
+        for (e in entities) read(e)?.let { byUuid[e.uniqueId] = it }
     }
 
     fun taggedInChunk(chunk: Chunk): List<Entity> = chunk.entities.filter { isOurs(it) }

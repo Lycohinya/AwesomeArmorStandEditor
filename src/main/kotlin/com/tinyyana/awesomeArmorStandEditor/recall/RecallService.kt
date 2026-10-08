@@ -20,6 +20,11 @@ import java.util.concurrent.ConcurrentHashMap
  * Entity lookup never walks a world: the registry index (entity UUID -> tag, resolved with
  * Server.getEntity) unioned with getNearbyEntities around a seed, both filtered by our PDC.
  * Only loaded chunks are reachable, and the player is told so.
+ *
+ * Threading: a copy may span regions on a regionized server. Index hits can be owned by another region,
+ * so for those the tag comes from the registry index instead of the entity's PDC, and removal is handed
+ * to each entity's owner ([removeEntity]). The seed-neighbourhood box is limited to what the calling
+ * region owns (`Scheduling.nearbyEntities`); on Spigot all of this collapses to the old single-thread path.
  */
 class RecallService(private val plugin: AwesomeArmorStandEditorPlugin) {
 
@@ -27,7 +32,7 @@ class RecallService(private val plugin: AwesomeArmorStandEditorPlugin) {
     private val texts get() = plugin.texts
     private val pending = ConcurrentHashMap<UUID, PendingRemove>()
 
-    /** 3-second per-player limit on punch/right-click hints (main thread only). */
+    /** 3-second per-player limit on punch/right-click hints (any region thread). */
     val hints = HintThrottle(HINT_INTERVAL_MILLIS)
 
     // --- snapshots -------------------------------------------------------------
@@ -41,21 +46,25 @@ class RecallService(private val plugin: AwesomeArmorStandEditorPlugin) {
         )
     }
 
-    /** Index hits (resolved via Server.getEntity) ∪ our entities within [radius] of [center]. */
+    /**
+     * The entity's tag: its PDC when this thread owns it, otherwise the registry index, so an entity
+     * owned by another region is never read. (Its position is, for [candidate]: plain coordinate fields.)
+     */
+    private fun tagOf(entity: Entity): EntityRegistry.Tag? =
+        if (plugin.scheduling.isOwnedHere(entity)) registry.read(entity) else registry.tagOf(entity.uniqueId)
+
+    /** Index hits (resolved via Server.getEntity) ∪ our entities within [radius] of [center] that this region owns. */
     fun gather(indexIds: Collection<UUID>, center: Location, radius: Double = SEED_RADIUS): Map<UUID, Pair<Entity, Candidate>> {
         val out = LinkedHashMap<UUID, Pair<Entity, Candidate>>()
         for (id in indexIds) {
             val e = registry.resolve(id) ?: continue
-            val tag = registry.read(e) ?: continue
+            val tag = tagOf(e) ?: continue
             out[id] = e to candidate(e, tag)
         }
-        val world = center.world
-        if (world != null) {
-            for (e in world.getNearbyEntities(center, radius, radius, radius)) {
-                if (e.uniqueId in out || !registry.isOurs(e) || !e.isValid) continue
-                val tag = registry.read(e) ?: continue
-                out[e.uniqueId] = e to candidate(e, tag)
-            }
+        for (e in plugin.scheduling.nearbyEntities(center, radius) { registry.isOurs(it) && it.isValid }) {
+            if (e.uniqueId in out) continue
+            val tag = registry.read(e) ?: continue
+            out[e.uniqueId] = e to candidate(e, tag)
         }
         return out
     }
@@ -107,14 +116,15 @@ class RecallService(private val plugin: AwesomeArmorStandEditorPlugin) {
 
     // --- previews --------------------------------------------------------------
 
-    /** `/aase remove look`: what the player is looking at, else their nearest own element. */
+    /**
+     * `/aase remove look`: what the player is looking at, else their nearest own element. Both searches
+     * are limited to the calling region's chunks (see `Scheduling.nearbyEntities`).
+     */
     fun previewLook(player: Player) {
         val range = plugin.settings.selectRange.toDouble()
         val eye = player.eyeLocation
-        val hit = player.world.rayTraceEntities(eye, eye.direction, range, RAY_SIZE) {
-            it != player && registry.isOurs(it)
-        }?.hitEntity
-        val target = hit ?: player.getNearbyEntities(range, range, range)
+        val hit = plugin.scheduling.rayTraceEntity(eye, range, RAY_SIZE) { it != player && registry.isOurs(it) }
+        val target = hit ?: plugin.scheduling.nearbyEntities(eye, range)
             .filter { registry.isOurs(it) && !registry.isEmitterMarker(it) && registry.read(it)?.owner == player.uniqueId }
             .minByOrNull { it.location.distanceSquared(eye) }
             ?: return texts.send(player, "remove.look-none")
@@ -238,7 +248,7 @@ class RecallService(private val plugin: AwesomeArmorStandEditorPlugin) {
         return found.mapValues { it.value.first } to plan
     }
 
-    /** The one removal path (remove confirm, close discard). Returns entities removed. */
+    /** The one removal path (remove confirm, close discard). Returns entities removed or handed to their owner. */
     private fun execute(found: Map<UUID, Entity>, plan: RemovePlan.Plan): Int {
         var removed = 0
         for (id in plan.ids) {
@@ -254,6 +264,9 @@ class RecallService(private val plugin: AwesomeArmorStandEditorPlugin) {
      * Forget, close any session editing this copy, drop from the particle ticker, remove.
      * Shared by recall and the admin tools. [closeSessions] is false only for deleting one element
      * from inside the session that owns it — that session stays open and drops the element itself.
+     *
+     * Everything before the last line is thread-safe bookkeeping, so it happens here and now. The entity
+     * itself is removed by its owner: right away when this region owns it, otherwise on its own thread.
      */
     fun removeEntity(entity: Entity, closeSessions: Boolean = true) {
         if (closeSessions) closeSessionsTouching(entity)
@@ -262,7 +275,7 @@ class RecallService(private val plugin: AwesomeArmorStandEditorPlugin) {
             session.entities.entries.removeIf { it.value.uniqueId == entity.uniqueId }
         }
         plugin.particles.forget(entity)
-        entity.remove()
+        plugin.scheduling.onOwner(entity) { it.remove() }
     }
 
     /**
@@ -270,7 +283,7 @@ class RecallService(private val plugin: AwesomeArmorStandEditorPlugin) {
      * requester's. Left open, a later save would write the removed elements back into the file.
      */
     private fun closeSessionsTouching(entity: Entity) {
-        val placement = registry.read(entity)?.placement
+        val placement = tagOf(entity)?.placement
         for (session in plugin.sessions.all().toList()) {
             val hit = (placement != null && session.placementId == placement) ||
                 session.entities.values.any { it.uniqueId == entity.uniqueId }

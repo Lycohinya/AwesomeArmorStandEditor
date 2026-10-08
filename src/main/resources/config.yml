@@ -32,8 +32,8 @@ region:
 
 # 粒子發射器(/aase particle):只在已載入區塊 + 附近有玩家時發射,並有每 tick 全域上限
 particles:
-  budget-per-tick: 200   # 每 tick 全服最多處理的發射器數(超過就跳過,保護 TPS)
-  render-range: 32       # 發射器周圍多少格內有玩家才發射
+  budget-per-tick: 200   # 每 tick 全服最多實際發射的發射器數(超過就跳過,保護 TPS);Folia 各區域同時發射,上限為近似值
+  render-range: 32       # 發射器周圍多少格內有玩家才發射(Folia 上只算同一區域內的玩家)
 
 # 管理工具(/aase admin,權限 aase.admin)
 admin:

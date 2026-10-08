@@ -59,10 +59,9 @@ class EditToolListener(private val plugin: AwesomeArmorStandEditorPlugin) : List
         // Match the player's real attack reach (3 in survival, more in creative): a longer ray would
         // swallow the mode switch for stands the swing can't actually hit, so neither would fire.
         val reach = player.getAttribute(Attribute.ENTITY_INTERACTION_RANGE)?.value ?: DEFAULT_REACH
-        val hit = player.world.rayTraceEntities(eye, eye.direction, reach, 0.0) {
+        return plugin.scheduling.rayTraceEntity(eye, reach, 0.0) {
             it != player && it is ArmorStand && !it.isMarker && plugin.registry.isOurs(it)
-        }
-        return hit?.hitEntity != null
+        } != null
     }
 
     @EventHandler

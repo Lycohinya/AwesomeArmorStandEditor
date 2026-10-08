@@ -16,6 +16,7 @@ import com.tinyyana.awesomeArmorStandEditor.model.Keyframe
 import com.tinyyana.awesomeArmorStandEditor.model.ParticleEmitter
 import com.tinyyana.awesomeArmorStandEditor.model.Scene
 import com.tinyyana.awesomeArmorStandEditor.model.Vec3
+import com.tinyyana.awesomeArmorStandEditor.recall.Candidate
 import com.tinyyana.awesomeArmorStandEditor.recall.CloseDecision
 import com.tinyyana.awesomeArmorStandEditor.session.EditMode
 import com.tinyyana.awesomeArmorStandEditor.session.EditSession
@@ -42,7 +43,8 @@ import java.util.UUID
 /**
  * Shared editing operations, used by both the command and the in-world tool listener so the two
  * entry points never diverge. All player messaging goes through Texts; all placement through
- * PlacementService. Runs on the main thread (called from command/event handlers).
+ * PlacementService. Runs on the calling player's own thread (command/event handlers); writes to placed
+ * entities go through the entity's owner (see [reapply]), which on Folia can be another region.
  */
 class EditorController(private val plugin: AwesomeArmorStandEditorPlugin) {
 
@@ -128,6 +130,14 @@ class EditorController(private val plugin: AwesomeArmorStandEditorPlugin) {
 
     // --- adjustment ---
 
+    /**
+     * Re-applies [element] to its live [entity]. The editor may have walked out of the region that owns
+     * the placed entities, so the write goes to the entity's owner (inline when that is this thread).
+     */
+    private fun reapply(entity: Entity, element: Element) {
+        plugin.scheduling.onOwner(entity) { plugin.placement.apply(it, element) }
+    }
+
     fun adjust(player: Player, direction: Int) {
         val session = plugin.sessions.get(player.uniqueId) ?: return noSession(player)
         val element = session.selected() ?: return plugin.texts.send(player, "select.none")
@@ -140,7 +150,7 @@ class EditorController(private val plugin: AwesomeArmorStandEditorPlugin) {
         when {
             element is ArmorStandElement && session.mode == EditMode.POSE -> {
                 element.pose = PoseOps.setPart(element.pose, session.part, PoseOps.nudge(PoseOps.getPart(element.pose, session.part), session.axis, step))
-                plugin.placement.apply(entity, element)
+                reapply(entity, element)
             }
             session.mode == EditMode.MOVE -> {
                 val origin = session.origin ?: return
@@ -155,19 +165,19 @@ class EditorController(private val plugin: AwesomeArmorStandEditorPlugin) {
                 val crossed = target.blockX != from.blockX || target.blockY != from.blockY || target.blockZ != from.blockZ
                 if (crossed && !checkRegion(player, listOf(target))) return
                 element.moveOffset(session.axis, step)
-                entity.teleport(target)
+                plugin.scheduling.teleport(entity, target)
             }
             element is DisplayElement && session.mode == EditMode.TRANSLATE -> {
                 element.transform = TransformOps.translate(element.transform, session.axis, step)
-                plugin.placement.apply(entity, element)
+                reapply(entity, element)
             }
             element is DisplayElement && session.mode == EditMode.ROTATE -> {
                 element.transform = TransformOps.rotate(element.transform, session.axis, step)
-                plugin.placement.apply(entity, element)
+                reapply(entity, element)
             }
             element is DisplayElement && session.mode == EditMode.SCALE -> {
                 element.transform = TransformOps.scaleAxis(element.transform, session.axis, step)
-                plugin.placement.apply(entity, element)
+                reapply(entity, element)
             }
             else -> return
         }
@@ -259,17 +269,21 @@ class EditorController(private val plugin: AwesomeArmorStandEditorPlugin) {
         }
     }
 
+    /**
+     * The live entity behind [element]: the session's own handle, else the registry index (by UUID, which
+     * can resolve to an entity another region owns, so that one is matched by its indexed tag), else a
+     * small box around where it should stand (owned by this region by construction).
+     */
     private fun findElementEntity(s: EditSession, element: Element): Entity? {
         s.entities[element.localId]?.takeIf { it.isValid }?.let { return it }
         for (id in plugin.registry.byPlacement(s.placementId)) {
             val e = plugin.registry.resolve(id) ?: continue
-            val t = plugin.registry.read(e) ?: continue
+            val t = (if (plugin.scheduling.isOwnedHere(e)) plugin.registry.read(e) else plugin.registry.tagOf(id)) ?: continue
             if (!t.emitter && t.placement == s.placementId && t.localId == element.localId) return e
         }
         val origin = s.origin ?: return null
         val expected = plugin.placement.elementLocation(origin, element)
-        val world = expected.world ?: return null
-        return world.getNearbyEntities(expected, 2.0, 2.0, 2.0)
+        return plugin.scheduling.nearbyEntities(expected, 2.0)
             .filter { e ->
                 val t = plugin.registry.read(e)
                 t != null && !t.emitter && t.sceneId == s.scene.id && t.localId == element.localId &&
@@ -375,8 +389,8 @@ class EditorController(private val plugin: AwesomeArmorStandEditorPlugin) {
         if (blockedByUnsaved(player)) return
         val range = plugin.settings.selectRange.toDouble()
         val savedCache = HashMap<Pair<UUID, String>, com.tinyyana.awesomeArmorStandEditor.recall.SceneIds?>()
-        val nearby = player.getNearbyEntities(range, range, range)
-            .filter { plugin.registry.isOurs(it) && !plugin.registry.isEmitterMarker(it) }
+        val eye = player.eyeLocation
+        val nearby = plugin.scheduling.nearbyEntities(eye, range) { plugin.registry.isOurs(it) && !plugin.registry.isEmitterMarker(it) }
             .mapNotNull { e -> plugin.registry.read(e)?.let { e to it } }
         if (nearby.isEmpty()) return plugin.texts.send(player, "edit.no-target")
         val bindable = nearby.filter { (_, tag) -> !plugin.recall.isOrphan(tag, savedCache) }
@@ -386,7 +400,7 @@ class EditorController(private val plugin: AwesomeArmorStandEditorPlugin) {
                 listOf(plugin.texts.button("edit.button-remove-look", "/aase remove look")),
             )
         }
-        val (target, tag) = bindable.minBy { it.first.location.distanceSquared(player.eyeLocation) }
+        val (target, tag) = bindable.minBy { it.first.location.distanceSquared(eye) }
         if (tag.owner != player.uniqueId && !player.hasPermission("aase.admin")) {
             return plugin.texts.send(player, "edit.not-owner")
         }
@@ -401,29 +415,31 @@ class EditorController(private val plugin: AwesomeArmorStandEditorPlugin) {
 
         // Members of this copy: its placement, or the legacy group around the target (migrated below).
         val placementId = tag.placement ?: UUID.randomUUID().toString()
-        val members: List<Entity> = if (tag.placement != null) {
+        // Pairs of (entity, tag): members of a placement can belong to another region, whose PDC this
+        // thread must not read, so their tag is the one gather took from the registry index.
+        val members: List<Pair<Entity, Candidate>> = if (tag.placement != null) {
             plugin.recall.gather(plugin.registry.byPlacement(placementId), target.location).values
                 .filter { it.second.placement == placementId }
-                .map { it.first }
         } else {
             val ids = plugin.recall.legacyGroup(target, tag, scene)
-            val group = ids.mapNotNull { id -> plugin.registry.resolve(id) }
+            // Migration writes PDC, so it only touches entities this region owns (a legacy group is
+            // found by a box query, which is region-local already).
+            val group = ids.mapNotNull { id -> plugin.registry.resolve(id)?.takeIf { plugin.scheduling.isOwnedHere(it) } }
             for (e in group) plugin.registry.migrate(e, placementId, scene.name)
-            group
+            group.mapNotNull { e -> plugin.registry.read(e)?.let { e to plugin.recall.candidate(e, it) } }
         }
 
         val session = reopen(player, scene, placementId)
         session.origin = origin
-        for (e in members) {
-            if (plugin.registry.isEmitterMarker(e)) continue
-            val t = plugin.registry.read(e) ?: continue
-            val el = scene.elements.find { it.localId == t.localId } ?: continue
+        for ((e, c) in members) {
+            if (c.emitter) continue
+            val el = scene.elements.find { it.localId == c.localId } ?: continue
             // One entity per localId; if a copy somehow holds two, keep the one where the origin
             // says it should stand so anim-stop's restore doesn't teleport the wrong one.
             val expected = plugin.placement.elementLocation(origin, el)
-            val current = session.entities[t.localId]
+            val current = session.entities[c.localId]
             if (current == null || e.location.distanceSquared(expected) < current.location.distanceSquared(expected)) {
-                session.entities[t.localId] = e
+                session.entities[c.localId] = e
             }
         }
         session.selectedLocalId = tag.localId
@@ -494,7 +510,7 @@ class EditorController(private val plugin: AwesomeArmorStandEditorPlugin) {
         val el = s.selected()
         if (el !is DisplayElement || el.kind != kind) return@withSession plugin.texts.send(player, "payload.wrong-kind")
         el.payload = payload
-        s.entities[el.localId]?.let { plugin.placement.apply(it, el) }
+        s.entities[el.localId]?.let { reapply(it, el) }
         s.dirty = true
         plugin.texts.send(player, "payload.set")
     }
@@ -506,7 +522,7 @@ class EditorController(private val plugin: AwesomeArmorStandEditorPlugin) {
         val off = player.inventory.itemInOffHand
         if (off.type.isAir) return@withSession plugin.texts.send(player, "payload.offhand-empty")
         el.item = ItemResolver.toRef(off)
-        s.entities[el.localId]?.let { plugin.placement.apply(it, el) }
+        s.entities[el.localId]?.let { reapply(it, el) }
         s.dirty = true
         plugin.texts.send(player, "payload.set")
     }
@@ -515,7 +531,7 @@ class EditorController(private val plugin: AwesomeArmorStandEditorPlugin) {
         val el = s.selected()
         if (el !is ArmorStandElement) return@withSession plugin.texts.send(player, "name.only-stand")
         el.customName = miniMessage
-        s.entities[el.localId]?.let { plugin.placement.apply(it, el) }
+        s.entities[el.localId]?.let { reapply(it, el) }
         s.dirty = true
         plugin.texts.send(player, "name.set")
     }
@@ -538,7 +554,7 @@ class EditorController(private val plugin: AwesomeArmorStandEditorPlugin) {
             "offhand" -> eq.offHand.also { eq.offHand = encoded }
             else -> return@withSession plugin.texts.send(player, "equip.bad-slot")
         }
-        s.entities[el.localId]?.let { plugin.placement.apply(it, el) }
+        s.entities[el.localId]?.let { reapply(it, el) }
         s.dirty = true
         when {
             encoded != null -> plugin.texts.send(player, "equip.set", "slot" to plugin.texts.escape(slot))
@@ -561,7 +577,7 @@ class EditorController(private val plugin: AwesomeArmorStandEditorPlugin) {
             "glowing" -> f.glowing = !f.glowing
             else -> return@withSession
         }
-        s.entities[el.localId]?.let { plugin.placement.apply(it, el) }
+        s.entities[el.localId]?.let { reapply(it, el) }
         s.dirty = true
         plugin.texts.send(player, "flag.toggled", "flag" to plugin.texts.escape(flag))
     }
@@ -617,7 +633,7 @@ class EditorController(private val plugin: AwesomeArmorStandEditorPlugin) {
     fun shareCode(player: Player) = withSession(player) { s ->
         if (s.scene.elements.isEmpty() && s.scene.emitters.isEmpty()) return@withSession plugin.texts.send(player, "export.empty")
         LycoLibHook.audit(plugin.name, player.name, "scene.share", "name=${s.scene.name}")
-        // Snapshot both forms now, on the main thread: the scene may change while the upload runs.
+        // Snapshot both forms now, on the player's thread: the scene may change while the upload runs.
         val aase1 = ShareCode.encode(s.scene)
         if (plugin.remote.uploadEnabled()) {
             val json = SceneCodec.toJson(s.scene, SceneCodec.WriteOptions(includeIdentity = false))
@@ -667,7 +683,7 @@ class EditorController(private val plugin: AwesomeArmorStandEditorPlugin) {
             if (short != null) {
                 if (!plugin.settings.remote.enabled) return plugin.texts.send(player, "remote.disabled")
                 plugin.remote.importRemote(player, short) { p, scene ->
-                    // Back on the main thread: the player may have started editing meanwhile.
+                    // Back on the player's thread: the player may have started editing meanwhile.
                     if (!blockedByUnsaved(p)) importScene(p, scene, name)
                 }
                 return
@@ -764,7 +780,7 @@ class EditorController(private val plugin: AwesomeArmorStandEditorPlugin) {
             "offhand" -> el.equipment.offHand = encoded
             else -> return false
         }
-        s.entities[el.localId]?.let { plugin.placement.apply(it, el) }
+        s.entities[el.localId]?.let { reapply(it, el) }
         s.dirty = true
         return true
     }
@@ -846,7 +862,7 @@ class EditorController(private val plugin: AwesomeArmorStandEditorPlugin) {
         val preset = plugin.presets.pose(presetId) ?: return@withSession plugin.texts.send(player, "preset.pose-missing", "id" to plugin.texts.escape(presetId))
         el.pose = preset.pose
         preset.arms?.let { el.flags.arms = it }
-        s.entities[el.localId]?.let { plugin.placement.apply(it, el) }
+        s.entities[el.localId]?.let { reapply(it, el) }
         s.dirty = true
         plugin.texts.send(player, "preset.pose-applied", "name" to plugin.texts.presetName(preset.id, plugin.texts.escape(preset.name)))
     }
@@ -884,7 +900,7 @@ class EditorController(private val plugin: AwesomeArmorStandEditorPlugin) {
             rightArm = p.leftArm.copy(y = -p.leftArm.y, z = -p.leftArm.z),
             rightLeg = p.leftLeg.copy(y = -p.leftLeg.y, z = -p.leftLeg.z),
         )
-        s.entities[el.localId]?.let { plugin.placement.apply(it, el) }
+        s.entities[el.localId]?.let { reapply(it, el) }
         s.dirty = true
         plugin.texts.send(player, "preset.mirrored")
     }
@@ -1078,8 +1094,8 @@ class EditorController(private val plugin: AwesomeArmorStandEditorPlugin) {
         }
         val entity = s.entities[element.localId]
         if (entity != null) {
-            plugin.placement.apply(entity, element)
-            s.origin?.let { entity.teleport(plugin.placement.elementLocation(it, element)) }
+            reapply(entity, element)
+            s.origin?.let { plugin.scheduling.teleport(entity, plugin.placement.elementLocation(it, element)) }
         }
         s.dirty = true
         sound(player, Sound.BLOCK_NOTE_BLOCK_BELL, 0.5f, 1.2f)

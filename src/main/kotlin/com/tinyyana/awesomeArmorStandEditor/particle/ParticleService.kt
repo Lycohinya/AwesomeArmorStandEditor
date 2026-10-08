@@ -3,41 +3,68 @@ package com.tinyyana.awesomeArmorStandEditor.particle
 import com.tinyyana.awesomeArmorStandEditor.AaseKeys
 import com.tinyyana.awesomeArmorStandEditor.AwesomeArmorStandEditorPlugin
 import com.tinyyana.awesomeArmorStandEditor.model.ParticleEmitter
-import org.bukkit.Chunk
+import com.tinyyana.awesomeArmorStandEditor.sched.TaskHandle
 import org.bukkit.Color
 import org.bukkit.Location
 import org.bukkit.Particle
 import org.bukkit.entity.ArmorStand
 import org.bukkit.entity.Entity
+import org.bukkit.entity.Player
 import org.bukkit.persistence.PersistentDataType
-import org.bukkit.scheduler.BukkitTask
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicInteger
 
 /**
  * Particle emitters are invisible marker entities carrying their params in PDC, so they persist with
- * the placed art. A single global ticker emits only for markers in loaded chunks with a player in
- * range, and stops at a per-tick budget. No world scan — markers are indexed as chunks load.
+ * the placed art. Each marker runs its own timer on the entity's scheduler: that is the thread that owns
+ * the marker, so reading its position and the players around it is always legal, and a marker whose chunk
+ * unloads simply loses its timer (it is picked up again when its entities load). No world scan: markers
+ * are indexed as entities load.
  *
  * Perf: the PDC string is decoded and the [Particle] enum + dust options resolved exactly once (at
- * spawn/index time) and cached per marker. The per-tick loop then does no parsing at all — it only
- * checks the rate and player range — so a scene full of emitters stays cheap on the main thread.
+ * spawn/index time) and kept on the [Marker]. A timer tick then only counts toward the emitter's rate;
+ * the player-in-range query runs only on the ticks that would emit.
+ *
+ * Players are found with a region-local entity query, not `World.getPlayers()` (which spans regions on
+ * Folia). So on a regionized server an emitter only fires for viewers its own region owns, the same set
+ * `World.spawnParticle` delivers to there.
  */
 class ParticleService(private val plugin: AwesomeArmorStandEditorPlugin, private val keys: AaseKeys) {
 
-    /** Decoded emitter + pre-resolved particle handle, so the hot loop never parses. */
-    private class Cached(val emitter: ParticleEmitter, val particle: Particle?, val dust: Particle.DustOptions?)
+    /** Decoded emitter + pre-resolved particle handle, so the hot path never parses. */
+    private class Marker(
+        val entity: Entity,
+        val placement: String?,
+        val emitter: ParticleEmitter,
+        val particle: Particle?,
+        val dust: Particle.DustOptions?,
+    ) {
+        @Volatile var timer: TaskHandle? = null
 
-    private val markers = ConcurrentHashMap<Entity, Cached>()
-    private var tick = 0L
-    private var task: BukkitTask? = null
+        /** Ticks since the last emit attempt; only touched by the marker's own timer. */
+        var sinceEmit = 0
+    }
+
+    private val markers = ConcurrentHashMap<UUID, Marker>()
+
+    /**
+     * Emissions still allowed this tick. Refilled every tick by one global timer; with several region
+     * threads emitting at once the cap is approximate (a few extra may slip through), which is all a
+     * TPS safeguard needs.
+     */
+    private val budget = AtomicInteger(0)
+    private var refill: TaskHandle? = null
 
     fun start() {
-        task = plugin.server.scheduler.runTaskTimer(plugin, Runnable { run() }, 20L, 1L)
+        budget.set(plugin.settings.particleBudget)
+        refill = plugin.scheduling.runGlobalTimer(1L, 1L) { budget.set(plugin.settings.particleBudget) }
     }
 
     fun stop() {
-        task?.cancel(); task = null
+        refill?.cancel(); refill = null
+        markers.values.forEach { it.timer?.cancel() }
+        markers.clear()
     }
 
     /**
@@ -57,87 +84,98 @@ class ParticleService(private val plugin: AwesomeArmorStandEditorPlugin, private
         }
         marker.persistentDataContainer.set(keys.emitter, PersistentDataType.STRING, encode(emitter))
         plugin.registry.tag(marker, owner, sceneId, emitter.id, placementId, sceneName)
-        markers[marker] = build(emitter)
+        track(marker, placementId, emitter)
         return marker
     }
 
-    fun indexChunk(chunk: Chunk) {
-        for (e in chunk.entities) {
-            if (markers.containsKey(e)) continue
-            val data = e.persistentDataContainer.get(keys.emitter, PersistentDataType.STRING) ?: continue
-            decode(data)?.let { markers[e] = build(it) }
+    /** Index the emitter markers among [entities]. Runs on the thread that owns them (it reads their PDC). */
+    fun indexEntities(entities: Collection<Entity>) {
+        for (e in entities) {
+            if (markers.containsKey(e.uniqueId)) continue
+            val pdc = e.persistentDataContainer
+            val emitter = pdc.get(keys.emitter, PersistentDataType.STRING)?.let(::decode) ?: continue
+            track(e, pdc.get(keys.placement, PersistentDataType.STRING), emitter)
         }
     }
 
-    /** One-time startup index of emitter markers in currently-loaded chunks. */
-    fun indexLoaded() {
-        for (world in plugin.server.worlds) for (chunk in world.loadedChunks) indexChunk(chunk)
+    /**
+     * Start the marker's own timer. When the entity goes away (removed, or its chunk unloads) the retired
+     * callback drops it from [markers]; it removes by (uuid, marker) so a reloaded marker with the same
+     * UUID, already re-tracked, is not dropped by its predecessor's late callback.
+     */
+    private fun track(entity: Entity, placement: String?, emitter: ParticleEmitter) {
+        val marker = build(entity, placement, emitter)
+        val uuid = entity.uniqueId
+        if (markers.putIfAbsent(uuid, marker) != null) return
+        marker.timer = plugin.scheduling.runForEntityTimer(
+            entity, 1L, 1L,
+            task = { tickMarker(marker) },
+            retired = { markers.remove(uuid, marker) },
+        )
     }
 
     /**
      * Removes the emitter markers of one placed copy. Not by scene id: several copies of one saved
-     * scene share it, and clearing one copy's emitters must not pull the others'.
+     * scene share it, and clearing one copy's emitters must not pull the others'. The placement comes
+     * from the cached marker, so no entity owned elsewhere is read; the removal itself runs on its owner.
      */
     fun removeForPlacement(placementId: String): Int {
         var removed = 0
-        val it = markers.keys.iterator()
-        while (it.hasNext()) {
-            val e = it.next()
-            if (e.persistentDataContainer.get(keys.placement, PersistentDataType.STRING) == placementId) {
-                plugin.registry.forget(e.uniqueId)
-                if (!e.isDead) e.remove()
-                it.remove()
-                removed++
-            }
+        for ((uuid, marker) in markers) {
+            if (marker.placement != placementId || !markers.remove(uuid, marker)) continue
+            marker.timer?.cancel()
+            plugin.registry.forget(uuid)
+            plugin.scheduling.onOwner(marker.entity) { if (!it.isDead) it.remove() }
+            removed++
         }
         return removed
     }
 
     /** Drop a marker that was removed by someone else (recall/admin) from the ticking set. */
     fun forget(entity: Entity) {
-        markers.remove(entity)
+        markers.remove(entity.uniqueId)?.timer?.cancel()
     }
 
-    private fun run() {
-        if (markers.isEmpty()) return
-        tick++
-        var budget = plugin.settings.particleBudget
+    /** Runs on the marker's owning thread, every tick. */
+    private fun tickMarker(m: Marker) {
+        val e = m.emitter
+        if (m.particle == null || e.rateTicks <= 0 || ++m.sinceEmit < e.rateTicks) return
+        m.sinceEmit = 0
+        if (budget.get() <= 0) return
+        val loc = m.entity.location
         val range = plugin.settings.particleRange.toDouble()
         val rangeSq = range * range
-        val it = markers.entries.iterator()
-        while (it.hasNext()) {
-            val entry = it.next()
-            val marker = entry.key
-            if (!marker.isValid) { it.remove(); continue }
-            val cached = entry.value
-            val e = cached.emitter
-            if (cached.particle == null || e.rateTicks <= 0 || tick % e.rateTicks != 0L) continue
-            val loc = marker.location
-            if (loc.world?.players?.none { p -> p.location.distanceSquared(loc) <= rangeSq } != false) continue
-            emit(loc, cached)
-            if (--budget <= 0) break
+        // Single-threaded servers keep the cheap player-list scan; a regionized one may only look at what
+        // this region owns, which costs a box query.
+        val watched = if (plugin.scheduling.regionized) {
+            plugin.scheduling.nearbyEntities(loc, range) { it is Player && it.location.distanceSquared(loc) <= rangeSq }.isNotEmpty()
+        } else {
+            loc.world?.players?.any { it.location.distanceSquared(loc) <= rangeSq } == true
         }
+        if (!watched) return
+        budget.decrementAndGet()
+        emit(loc, m)
     }
 
-    private fun emit(loc: Location, c: Cached) {
+    private fun emit(loc: Location, m: Marker) {
         val world = loc.world ?: return
-        val particle = c.particle ?: return
-        val e = c.emitter
+        val particle = m.particle ?: return
+        val e = m.emitter
         runCatching {
-            if (c.dust != null) {
-                world.spawnParticle(particle, loc, e.count, e.spread.x, e.spread.y, e.spread.z, e.speed, c.dust)
+            if (m.dust != null) {
+                world.spawnParticle(particle, loc, e.count, e.spread.x, e.spread.y, e.spread.z, e.speed, m.dust)
             } else {
                 world.spawnParticle(particle, loc, e.count, e.spread.x, e.spread.y, e.spread.z, e.speed)
             }
         }
     }
 
-    private fun build(e: ParticleEmitter): Cached {
+    private fun build(entity: Entity, placement: String?, e: ParticleEmitter): Marker {
         val particle = runCatching { Particle.valueOf(e.particle.uppercase()) }.getOrNull()
         val dust = if (particle?.dataType == Particle.DustOptions::class.java) {
             Particle.DustOptions(Color.fromRGB(e.dustColor and 0xFFFFFF), 1.0f)
         } else null
-        return Cached(e, particle, dust)
+        return Marker(entity, placement, e, particle, dust)
     }
 
     private fun encode(e: ParticleEmitter): String =

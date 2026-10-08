@@ -2,6 +2,7 @@ package com.tinyyana.awesomeArmorStandEditor.recall
 
 import com.tinyyana.awesomeArmorStandEditor.model.Vec3
 import java.util.UUID
+import java.util.concurrent.ConcurrentHashMap
 
 /*
  * Pure pieces of "recall" (收回): which entities belong together, which are orphans, what a remove
@@ -172,15 +173,19 @@ object CloseDecision {
     }
 }
 
-/** Per-player cooldown for hint messages (punching an element repeatedly must not spam). */
+/**
+ * Per-player cooldown for hint messages (punching an element repeatedly must not spam). Shared by every
+ * region thread on Folia, so the check-and-stamp is one atomic map operation.
+ */
 class HintThrottle(private val intervalMillis: Long) {
-    private val last = HashMap<UUID, Long>()
+    private val last = ConcurrentHashMap<UUID, Long>()
 
     fun tryAcquire(player: UUID, nowMillis: Long): Boolean {
-        val prev = last[player]
-        if (prev != null && nowMillis - prev < intervalMillis) return false
-        last[player] = nowMillis
-        return true
+        var allowed = false
+        last.compute(player) { _, prev ->
+            if (prev != null && nowMillis - prev < intervalMillis) prev else { allowed = true; nowMillis }
+        }
+        return allowed
     }
 
     fun forget(player: UUID) {

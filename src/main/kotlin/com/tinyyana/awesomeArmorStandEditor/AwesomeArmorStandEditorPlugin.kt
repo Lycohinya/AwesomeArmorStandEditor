@@ -23,6 +23,7 @@ import com.tinyyana.awesomeArmorStandEditor.placement.PlacementService
 import com.tinyyana.awesomeArmorStandEditor.region.EventProbeGuard
 import com.tinyyana.awesomeArmorStandEditor.region.PermissiveGuard
 import com.tinyyana.awesomeArmorStandEditor.region.RegionGuard
+import com.tinyyana.awesomeArmorStandEditor.sched.Scheduling
 import com.tinyyana.awesomeArmorStandEditor.session.EditSessionManager
 import com.tinyyana.awesomeArmorStandEditor.store.ItemResolver
 import com.tinyyana.awesomeArmorStandEditor.store.SceneCodec
@@ -33,6 +34,8 @@ import java.io.File
 
 class AwesomeArmorStandEditorPlugin : JavaPlugin() {
 
+    /** The only scheduling entry point: region-aware on Paper/Folia, plain BukkitScheduler on Spigot. */
+    lateinit var scheduling: Scheduling; private set
     lateinit var keys: AaseKeys; private set
     lateinit var texts: Texts; private set
     lateinit var registry: EntityRegistry; private set
@@ -55,8 +58,9 @@ class AwesomeArmorStandEditorPlugin : JavaPlugin() {
     @Volatile lateinit var guard: RegionGuard; private set
 
     override fun onEnable() {
+        scheduling = Scheduling.create(this)   // first: everything below may schedule work
         saveDefaultConfig()
-        keys = AaseKeys(this)
+        keys =AaseKeys(this)
         texts = Texts.load(this)
         settings = EditorSettings.load(config)
         presets = PresetLibrary.load(this)
@@ -86,8 +90,7 @@ class AwesomeArmorStandEditorPlugin : JavaPlugin() {
         recall = RecallService(this)
         remote = RemoteService(this)   // builds no HttpClient until a remote import/upload is requested
         LycoLibHook.init(server.pluginManager)
-        registry.indexLoaded()
-        particles.indexLoaded()
+        ChunkIndexListener.indexLoadedChunks(this)
         particles.start()
 
         val command = AaseCommand(this)
@@ -106,11 +109,13 @@ class AwesomeArmorStandEditorPlugin : JavaPlugin() {
             registerEvents(equipmentMenu, this@AwesomeArmorStandEditorPlugin)
         }
 
-        logger.info("AwesomeArmorStandEditor enabled (standalone, Spigot/Paper compatible).")
+        logger.info("AwesomeArmorStandEditor enabled (standalone, Spigot/Paper/Folia compatible).")
     }
 
     override fun onDisable() {
         // Entities placed in the world persist (they're real tagged entities). Only editing state is dropped.
+        // Cancel scheduled work first so no timer fires into half-torn-down services.
+        if (::scheduling.isInitialized) scheduling.cancelAll()
         if (::particles.isInitialized) particles.stop()
         if (::remote.isInitialized) remote.shutdown()
         if (::texts.isInitialized) texts.close()

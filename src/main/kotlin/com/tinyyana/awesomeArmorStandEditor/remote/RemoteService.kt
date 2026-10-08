@@ -19,8 +19,8 @@ import java.util.concurrent.atomic.AtomicInteger
  *
  * - Off (`import.remote.enabled: false`) means no HttpClient and no thread is ever created.
  * - Per-player cooldown and a server-wide cap on concurrent requests.
- * - Network work runs on a small daemon pool; results come back to the main thread through the Bukkit
- *   thread (PlayerTasks), and are dropped if the player has left by then.
+ * - Network work runs on a small daemon pool; results come back to the player's own thread through
+ *   PlayerTasks (the region thread on Folia, the main thread on Spigot), and are dropped if the player has left by then.
  */
 class RemoteService(private val plugin: AwesomeArmorStandEditorPlugin) {
 
@@ -68,7 +68,7 @@ class RemoteService(private val plugin: AwesomeArmorStandEditorPlugin) {
     // --- import ---
 
     /**
-     * Fetch the scene for [code] and hand it to [onScene] on the main thread. Caller already checked
+     * Fetch the scene for [code] and hand it to [onScene] on the player's thread. Caller already checked
      * the permission and the unsaved-changes guard; [onScene] re-checks whatever may have changed.
      */
     fun importRemote(player: Player, code: String, onScene: (Player, Scene) -> Unit) {
@@ -119,7 +119,7 @@ class RemoteService(private val plugin: AwesomeArmorStandEditorPlugin) {
     fun uploadEnabled(): Boolean = plugin.settings.shareUpload && settings.enabled
 
     /**
-     * Upload the (already de-identified) v3 [json]. [onResult] runs on the main thread with the result,
+     * Upload the (already de-identified) v3 [json]. [onResult] runs on the player's thread with the result,
      * or is skipped if the player left. Returns false when nothing was sent (disabled, cooldown, busy) —
      * the caller then falls back to AASE1 text right away.
      */
