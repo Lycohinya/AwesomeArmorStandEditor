@@ -275,7 +275,7 @@ Paper 26.2 `runServer`,四次啟動,每次都 `AwesomeArmorStandEditor v1.0.0 en
 
 L1(自動,`./gradlew build`):`ContractFixturesTest`(6 份正向 golden 的 summon / mcfunction 完全相等、v3 寫回再讀匯出不變;19 份負向樣本第一個錯誤 pointer;`math/rotation.json` 與 `math/pose.json`)、`SceneCodecTest`(v2 ⇄ v3、v2 寫出時物品編碼與省略、無法以 v3 表達時退回 v2、去識別、元件字串正規化、code point 長度)、`RemoteLogicTest`(短碼 / 網址辨識、base-url 只收 https、邊讀邊計數的大小上限與逾時、cooldown、上傳回應只接受真短碼)。網站端驗證器以同一批負向樣本比對過 pointer(見回報)。
 
-管理員視角(先準備):`config.yml` 的 `import.remote.base-url` 指向可用的 AASE Studio(本機測試可用 `http://localhost:<port>`)。
+管理員視角(先準備):`config.yml` 的 `import.remote.base-url` 指向可用的擺景亭(本機測試可用 `http://localhost:<port>`)。
 1. **存檔格式**:`/aase new t` → 加一個盔甲座、副手拿一把附魔鑽石劍 `/aase setequip mainhand` → `/aase save`。打開 `scenes/<UUID>/<id>.json`:`schemaVersion: 3`、姿勢是 `poseDeg`(度)、主手是 `{"id":"minecraft:diamond_sword","count":1,"components":"[...]","bukkit":"..."}`。記下 `components` 的實際內容(**待實機確認 `getAsComponentString()` 的格式**,應只有中括號部分)。
 2. **舊檔照讀**:把 1.2.0 存的舊檔(`schemaVersion: 2`)放回 `scenes/<UUID>/`,`/aase load <名稱>` 正常放置、裝備都在;`/aase save` 後變成 v3。
 3. **寫 v2**:`store.write-schema: 2` → `/aase reload` → `/aase save`,檔案回到 `schemaVersion: 2`(弧度、base64 字串)。測完改回 3。
@@ -283,7 +283,7 @@ L1(自動,`./gradlew build`):`ContractFixturesTest`(6 份正向 golden 的 summo
 5. **遠端關閉**:`import.remote.enabled: false` → `/aase reload` → `/aase import abc2345` 回「此伺服器未開放遠端匯入」;`/aase share` 直接給分享碼文字。主控台不應出現任何連線。
 
 玩家視角(遠端開啟):
-6. `/aase share` → 「正在上傳…」→「已上傳,短碼 xxxxxxx」+ `[點擊複製 /aase import xxxxxxx]` `[在 AASE Studio 開啟]`;開啟的網頁看到同一個場景,JSON 裡沒有 `owner` / `id` / `lastAnchor`。
+6. `/aase share` → 「正在上傳…」→「已上傳,短碼 xxxxxxx」+ `[點擊複製 /aase import xxxxxxx]` `[在擺景亭開啟]`;開啟的網頁看到同一個場景,JSON 裡沒有 `owner` / `id` / `lastAnchor`。
 7. 另一個玩家(或自己 `close` 後換位置)`/aase import xxxxxxx 新名字` → 在腳下放置、回「已匯入並放置」;`/aase import https://…/s/XXXXXXX`(大寫、網址形式)同樣可以。
 8. 錯誤訊息各一次:不存在的短碼(「找不到短碼…」)、10 秒內連打兩次(「請等 N 秒再試」)、把 `base-url` 指到不回應的位址(逾時訊息,約 `timeout-seconds` 內出現)、讓網站回一份不合格的場景(列出最多 3 個 pointer)、把 `max-bytes` 調小到 1000 再匯入(「超過 …已停止下載」)。
 9. 下載中途登出:不應報錯、回來後沒有多放一份。

@@ -67,7 +67,7 @@ tasks {
 
     processResources {
         // The scene schema's source of truth is schema/scene.v3.schema.json (repo root, shared with
-        // AASE Studio); the jar carries a copy for the validator.
+        // Pose Pavilion); the jar carries a copy for the validator.
         from(rootProject.file("schema")) { include("scene.v3.schema.json") }
         val props = mapOf("version" to version.toString(), "description" to project.description.toString())
         // Without this the task is UP-TO-DATE across a version bump and ships a stale plugin.yml,

@@ -11,7 +11,7 @@ import java.util.zip.GZIPOutputStream
 /**
  * Portable share code text: gzip the scene JSON (v3) and URL-safe Base64 it, with a versioned prefix so
  * future formats can be told apart. It is usually longer than chat's 256-character limit, so it is meant
- * to be copied into a file or AASE Studio, and imported anywhere the plugin runs.
+ * to be copied into a file or Pose Pavilion, and imported anywhere the plugin runs.
  *
  * Decode is a trust boundary (arbitrary player-supplied text): the Base64 length and the decompressed
  * size are both capped to stop oversized/decompression-bomb inputs, any malformed data is reported
@@ -25,7 +25,7 @@ object ShareCode {
 
     fun encode(scene: Scene): String {
         // De-identified (no owner / id / last anchor): the text is meant to be passed around and pasted
-        // into AASE Studio. Import re-owns the scene anyway.
+        // into Pose Pavilion. Import re-owns the scene anyway.
         val json = SceneCodec.toJson(scene, SceneCodec.WriteOptions(includeIdentity = false)).toByteArray(Charsets.UTF_8)
         val bos = ByteArrayOutputStream()
         GZIPOutputStream(bos).use { it.write(json) }

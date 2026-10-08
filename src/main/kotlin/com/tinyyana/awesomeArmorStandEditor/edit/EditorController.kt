@@ -610,7 +610,7 @@ class EditorController(private val plugin: AwesomeArmorStandEditorPlugin) {
     // --- share code / import (P4) ---
 
     /**
-     * Share the current scene. With `share.upload` (and remote on) it is uploaded to AASE Studio for a
+     * Share the current scene. With `share.upload` (and remote on) it is uploaded to Pose Pavilion for a
      * short code; otherwise, or if the upload fails, the player gets the AASE1 text to copy. Both forms
      * are de-identified (no owner / id / last anchor).
      */
@@ -656,7 +656,7 @@ class EditorController(private val plugin: AwesomeArmorStandEditorPlugin) {
 
     /**
      * `/aase import <short code | share URL | AASE1:...> [name]`. A short code or URL is fetched from
-     * AASE Studio (asynchronously, see RemoteService); AASE1 text is decoded locally. Both end in
+     * Pose Pavilion (asynchronously, see RemoteService); AASE1 text is decoded locally. Both end in
      * [importScene], which applies the usual placement guards.
      */
     fun importCode(player: Player, code: String, name: String?) {

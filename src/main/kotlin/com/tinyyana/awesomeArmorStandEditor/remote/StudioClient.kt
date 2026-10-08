@@ -22,7 +22,7 @@ import java.util.concurrent.TimeoutException
 import java.util.concurrent.atomic.AtomicReference
 
 /**
- * Outbound-only HTTPS client for AASE Studio (`GET /api/scenes/<code>.json`, `POST /api/scenes`).
+ * Outbound-only HTTPS client for Pose Pavilion (`GET /api/scenes/<code>.json`, `POST /api/scenes`).
  * The plugin never listens on a port. Every result is a value (no exceptions escape the futures);
  * futures complete off the main thread — callers hop back with the Bukkit scheduler.
  *

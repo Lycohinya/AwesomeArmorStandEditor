@@ -44,20 +44,20 @@ admin:
 
 # 場景存檔格式(/aase save 寫出的 scenes/*.json)
 store:
-  # 3 = 新格式(預設):姿勢用度數 poseDeg、物品用 ItemRef {id, count, components, bukkit},可直接在 AASE Studio 編輯
+  # 3 = 新格式(預設):姿勢用度數 poseDeg、物品用 ItemRef {id, count, components, bukkit},可直接在擺景亭編輯
   # 2 = 舊格式:姿勢用弧度、物品只存 Bukkit base64,給還在用 1.2.x 以前版本的伺服器讀
   #     (只有 id 沒有 base64 的物品會先在伺服器上轉成物品再存;轉不出來的欄位會省略並寫警告到主控台)
   # 兩種格式插件都讀得懂,切換不需要轉檔
   write-schema: 3
 
-# 遠端匯入:/aase import <短碼|網址> 從 AASE Studio 下載作品
+# 遠端匯入:/aase import <短碼|網址> 從擺景亭下載作品
 # 插件只會主動對外連線(HTTPS),不會開任何監聽 port
 import:
   remote:
     # false = 整條遠端路徑關閉(不建立連線、不開執行緒),/aase import 短碼 會回「此伺服器未開放遠端匯入」
     # 分享碼文字(AASE1:…)不受影響
     enabled: true
-    # AASE Studio 的網址。只允許 https;http 只限 localhost / 127.0.0.1(本機測試用)
+    # 擺景亭的網址。只允許 https;http 只限 localhost / 127.0.0.1(本機測試用)
     base-url: "https://lyco-aase.tinyyana.com"
     # 連線與等待回應的逾時(秒)
     timeout-seconds: 10
@@ -69,8 +69,8 @@ import:
     max-concurrent: 4
 
 share:
-  # true = /aase share 先上傳到 AASE Studio 取得短碼(需要 import.remote.enabled: true);
+  # true = /aase share 先上傳到擺景亭取得短碼(需要 import.remote.enabled: true);
   #        上傳失敗時自動改給分享碼文字
-  # false = 只給分享碼文字(點擊複製,提示貼到 AASE Studio 或存成檔案)
+  # false = 只給分享碼文字(點擊複製,提示貼到擺景亭或存成檔案)
   # 上傳前會去掉擁有者、場景 id、最後放置位置
   upload: true

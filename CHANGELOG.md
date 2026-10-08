@@ -4,7 +4,7 @@
 
 ## [1.3.0] - 2026-10-07
 
-主題:**短碼分享與網站格式**。分享碼文字太長貼不進聊天,這版讓 `/aase share` 直接拿到短碼,別的伺服器打 `/aase import <短碼>` 就能放;存檔改成網站 AASE Studio 可以直接編輯的 schema v3。
+主題:**短碼分享與網站格式**。分享碼文字太長貼不進聊天,這版讓 `/aase share` 直接拿到短碼,別的伺服器打 `/aase import <短碼>` 就能放;存檔改成擺景亭可以直接編輯的 schema v3。
 
 ### Security(安全)
 
@@ -13,8 +13,8 @@
 
 ### Added(新增)
 
-- **`/aase import <短碼|網址|AASE1:…> [名稱]`。** 短碼(7 碼,不分大小寫)或 `https://…/s/<短碼>` 會從 AASE Studio 下載作品,下載完回主執行緒,再走與 `load` 相同的守門(未存變更詢問、每人上限、數量上限、領地、`AaseScenePlaceEvent`、新放置分組、擁有者換成匯入者)。找不到、逾時、檔案太大、不是作品資料、格式錯誤(列出前 3 個 JSON pointer)各有清楚的訊息;每人 cooldown、全服同時數上限;下載中登出就丟棄結果。
-- **`/aase share` 上傳取短碼。** 回 `[點擊複製 /aase import <短碼>]` 與 `[在 AASE Studio 開啟]`;上傳前去掉擁有者、場景 id、最後放置位置。關閉上傳或上傳失敗(含 429 太頻繁)時改給分享碼文字,提示貼到 AASE Studio 或存檔。分享碼文字(`AASE1:`)也一併去識別。
+- **`/aase import <短碼|網址|AASE1:…> [名稱]`。** 短碼(7 碼,不分大小寫)或 `https://…/s/<短碼>` 會從擺景亭下載作品,下載完回主執行緒,再走與 `load` 相同的守門(未存變更詢問、每人上限、數量上限、領地、`AaseScenePlaceEvent`、新放置分組、擁有者換成匯入者)。找不到、逾時、檔案太大、不是作品資料、格式錯誤(列出前 3 個 JSON pointer)各有清楚的訊息;每人 cooldown、全服同時數上限;下載中登出就丟棄結果。
+- **`/aase share` 上傳取短碼。** 回 `[點擊複製 /aase import <短碼>]` 與 `[在擺景亭開啟]`;上傳前去掉擁有者、場景 id、最後放置位置。關閉上傳或上傳失敗(含 429 太頻繁)時改給分享碼文字,提示貼到擺景亭或存檔。分享碼文字(`AASE1:`)也一併去識別。
 - **設定**:`store.write-schema`(3 / 2)、`import.remote.enabled / base-url / timeout-seconds / max-bytes / cooldown-seconds / max-concurrent`、`share.upload`。插件只會主動對外連 HTTPS(http 只限 localhost),不開監聽 port;`enabled: false` 時不建立任何連線或執行緒。**既有伺服器的 config.yml 沒有這些 key 時,以預設值(遠端開啟)運作**,不想連外請明確寫 `enabled: false`。
 - **匯入或讀檔時物品裝不上會說是哪幾格**,例如 `#2 主手 minecraft:foo_sword`(別的版本才有的物品、模組物品)。
 - `schema/scene.v3.schema.json`:場景格式的真本(JSON Schema 2020-12),jar 內附一份;`src/test/resources/fixtures/`:與網站共用的 golden 樣本(6 份匯出、19 份錯誤 pointer、旋轉與姿勢數學)。
@@ -47,7 +47,7 @@
 - **`/aase edit` 跳過孤兒。** 世界裡的元件若存檔已不存在(或存檔不再列出它的編號),又沒有 session 認領(剛加還沒存的元件不算孤兒),`edit` 不再綁它;附近只剩孤兒時提示 `/aase remove look`。沒有存檔可綁定的錯誤訊息也附上收回按鈕。
 - **切換作品前先問。** 有未存變更時,`new` / `load` / `import` / `edit` 不再默默丟掉目前的 session(以前沒存過的作品會因此變成孤兒),改給與 `close` 相同的三個選項。
 - **離線自動停動畫並結束 session。** 登出 / 斷線時停止播放(實體還原到模型)並關閉 session;**不存檔、不刪作品**,回來用 `/aase edit` 接續。
-- **分享碼文字不再說「貼到聊天給別人」。** `AASE1:` 碼通常超過聊天欄 256 字的上限,貼不進聊天框:`/aase share` 的提示、help、遊戲內手冊與全部文件都改成「存成檔案保存或轉交」。`/aase import` 指令保留;網站 AASE Studio 的短碼匯入預計 1.3.0 推出。
+- **分享碼文字不再說「貼到聊天給別人」。** `AASE1:` 碼通常超過聊天欄 256 字的上限,貼不進聊天框:`/aase share` 的提示、help、遊戲內手冊與全部文件都改成「存成檔案保存或轉交」。`/aase import` 指令保留;擺景亭的短碼匯入預計 1.3.0 推出。
 - 選取別份複本的元件時,訊息改為「那個元件屬於別的場景或別份複本」。管理員的 `remove` / `purge` 與玩家收回共用同一條移除路徑(忘記索引、從 session 脫離、停止粒子 ticker、移除實體)。
 
 ## [Unreleased]

@@ -66,7 +66,7 @@ data class EditorSettings(
     }
 }
 
-/** `import.remote.*` — fetching scenes from AASE Studio by short code. Outbound HTTPS only. */
+/** `import.remote.*` — fetching scenes from Pose Pavilion by short code. Outbound HTTPS only. */
 data class RemoteSettings(
     val enabled: Boolean = true,
     val baseUrl: String = DEFAULT_BASE_URL,

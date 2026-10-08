@@ -17,7 +17,7 @@ import kotlin.test.assertTrue
 import kotlin.test.fail
 
 /**
- * Golden fixtures shared with AASE Studio (the website copies src/test/resources/fixtures and the schema).
+ * Golden fixtures shared with Pose Pavilion (the website copies src/test/resources/fixtures and the schema).
  *
  *  - `<name>.scene.json` → SummonExporter / McFunctionExporter must equal `<name>.summon.txt` /
  *    `<name>.mcfunction.json` exactly (readme fixed to "README");

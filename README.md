@@ -26,7 +26,7 @@ Pose armor stands and item/block/text displays with a hybrid GUI + in-world tool
 - **Hybrid interaction**: a GUI control panel *and* a handheld tool for direct in-world nudging, with a live actionbar readout.
 - **Particle effects**: attach particle emitters to a scene; they only fire when a player is nearby *and* the chunk is loaded, under a global per-tick budget.
 - **Keyframe animation**: a timeline with keyframes and live preview playback (displays use client-side interpolation, armor stands are updated tick-by-tick).
-- **Save / share / export**: every scene is a portable JSON blueprint you can place multiple times; `/aase share` uploads to the AASE Studio website and returns a **short code** that `/aase import <code>` places on any server (falls back to **share code text** — gzip+Base64, too long for chat — when uploads are off or fail); scenes are saved as schema v3 JSON (degrees, item ids) that the website edits directly; export a `/summon` command (one-click copy) or a full **mcfunction datapack** (animation-driven).
+- **Save / share / export**: every scene is a portable JSON blueprint you can place multiple times; `/aase share` uploads to the Pose Pavilion website and returns a **short code** that `/aase import <code>` places on any server (falls back to **share code text** — gzip+Base64, too long for chat — when uploads are off or fail); scenes are saved as schema v3 JSON (degrees, item ids) that the website edits directly; export a `/summon` command (one-click copy) or a full **mcfunction datapack** (animation-driven).
 - **Recall your own work (1.2.0)**: placed something you don't want? `/aase remove look | here [radius] | scene <name>` previews, then `[Confirm recall]` takes it out of the world within 30 seconds; it only touches **your own** placements, only in loaded chunks, and **never deletes the save**. Each placement is its own copy, so two copies of one save never affect each other. `/aase close` asks before dropping unsaved changes (`[Save and close]` / `[Discard and recall]` / `[Keep editing]`), and the tool's sneak + left-click on your own armor stand previews a recall too (displays and marker stands have no hitbox, so use the commands or the panel's "Recall builds" button).
 - **Equipment menu**: `/aase equip` opens a graphical equipment GUI — click a hotbar/inventory item onto a slot to equip it, click with an empty cursor to unequip — **your items are never consumed or lost**.
 - **Survival-safe**: element ownership tags (anti-griefing), per-player / per-chunk / global element caps, region-protection awareness; **anything that writes to server files (export, saving to the shared preset library) is admin/builder-only by default** (see [Permissions](#permissions)).
@@ -131,7 +131,7 @@ Share code format: `ShareCode.encode(scene)` = `AASE1:` + URL-safe Base64(gzip(J
 - [`docs/MANUAL.en.md`](docs/MANUAL.en.md) / [`docs/MANUAL.md`](docs/MANUAL.md) — the full user manual (English / 繁體中文).
 - [`docs/TESTING.md`](docs/TESTING.md) — test steps (admin / player perspective).
 - [`CHANGELOG.md`](CHANGELOG.md) — detailed release notes.
-- [`schema/scene.v3.schema.json`](schema/scene.v3.schema.json) — **the source of truth** for the scene JSON format (JSON Schema 2020-12). The plugin bundles a copy in the jar and validates every v3 scene it reads against it; AASE Studio copies it (and the golden fixtures in `src/test/resources/fixtures/`) from this repo. Change the format here first.
+- [`schema/scene.v3.schema.json`](schema/scene.v3.schema.json) — **the source of truth** for the scene JSON format (JSON Schema 2020-12). The plugin bundles a copy in the jar and validates every v3 scene it reads against it; Pose Pavilion copies it (and the golden fixtures in `src/test/resources/fixtures/`) from this repo. Change the format here first.
 
 ### License
 
@@ -152,7 +152,7 @@ Share code format: `ShareCode.encode(scene)` = `AASE1:` + URL-safe Base64(gzip(J
 - **混合式操作**:控制面板 GUI + 手持工具在世界中直接微調,actionbar 即時讀數。
 - **粒子特效**:元件場景可掛粒子發射器,只在附近有玩家 + 已載入區塊時發射,有每 tick 全域預算。
 - **關鍵影格動畫**:時間軸 + 關鍵影格,即時預覽播放(Display 走客戶端插值,盔甲座逐 tick)。
-- **存檔 / 分享 / 匯出**:每個場景是可攜的 JSON 藍圖,可重複放置;`/aase share` 上傳到網站 AASE Studio 取得**短碼**,別的伺服器用 `/aase import <短碼>` 就能放置(上傳關閉或失敗時改給**分享碼文字**,gzip+Base64,太長貼不進聊天);存檔是 schema v3 JSON(度數、物品 id),網站可以直接編輯;匯出 `/summon` 指令(一鍵複製)或 **mcfunction 資料包**(含動畫驅動)。
+- **存檔 / 分享 / 匯出**:每個場景是可攜的 JSON 藍圖,可重複放置;`/aase share` 上傳到擺景亭取得**短碼**,別的伺服器用 `/aase import <短碼>` 就能放置(上傳關閉或失敗時改給**分享碼文字**,gzip+Base64,太長貼不進聊天);存檔是 schema v3 JSON(度數、物品 id),網站可以直接編輯;匯出 `/summon` 指令(一鍵複製)或 **mcfunction 資料包**(含動畫驅動)。
 - **收回自己的作品(1.2.0)**:放錯了、不要了?`/aase remove look | here [半徑] | scene <名稱>` 先預覽,30 秒內點 `[確認收回]` 才從世界收走;只動**自己放的**、只處理已載入區塊、**不刪存檔**。每次放置都是獨立的一份,同一份存檔放兩次互不影響。`/aase close` 有未存變更會先問(`[儲存並關閉]` / `[放棄並收回]` / `[繼續編輯]`);拿工具潛行左鍵打自己的盔甲座也能預覽收回(Display 與 marker 盔甲座沒有碰撞箱,打不到,請用指令或面板「收回作品」)。
 - **裝備選單**:`/aase equip` 開圖形裝備欄,手持物品點格子就穿上、空手點就卸下 —— **不會消耗或弄丟你的物品**。
 - **生存服安全**:元件擁有權標記(反格里芬)、每人/每區塊/全域數量上限、尊重領地保護;**寫入伺服器檔案的功能(匯出、存進共用範本庫)預設只開放給管理員/建築師**(見權限)。
@@ -257,7 +257,7 @@ Share code format: `ShareCode.encode(scene)` = `AASE1:` + URL-safe Base64(gzip(J
 - [`docs/MANUAL.md`](docs/MANUAL.md) / [`docs/MANUAL.en.md`](docs/MANUAL.en.md) — 完整使用說明手冊(繁體中文 / English)。
 - [`docs/TESTING.md`](docs/TESTING.md) — 測試步驟(管理員 / 玩家視角)。
 - [`CHANGELOG.md`](CHANGELOG.md) — 詳細版本變更紀錄。
-- [`schema/scene.v3.schema.json`](schema/scene.v3.schema.json) — 場景 JSON 格式的**真本**(JSON Schema 2020-12)。插件 jar 內附一份,讀入每個 v3 場景時都拿它驗證;網站 AASE Studio 從這個 repo 複製它與 `src/test/resources/fixtures/` 的 golden 樣本。要改格式先改這裡。
+- [`schema/scene.v3.schema.json`](schema/scene.v3.schema.json) — 場景 JSON 格式的**真本**(JSON Schema 2020-12)。插件 jar 內附一份,讀入每個 v3 場景時都拿它驗證;擺景亭從這個 repo 複製它與 `src/test/resources/fixtures/` 的 golden 樣本。要改格式先改這裡。
 
 ### 授權
 

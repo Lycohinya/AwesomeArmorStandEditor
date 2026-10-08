@@ -143,7 +143,7 @@ object SummonExporter {
      * SNBT — a bare quoted string is plain text. The old JSON-string form '{"text":"..."}' is
      * stored literally (verified via /summon on 26.2), so we must NOT use it.
      *
-     * Escaping (shared with AASE Studio, keep both in step): backslash, double quote, CR, LF and TAB
+     * Escaping (shared with Pose Pavilion, keep both in step): backslash, double quote, CR, LF and TAB
      * become `\\`, `\"`, `\r`, `\n`, `\t`; every other character is left as is. A raw line break would
      * split the command.
      */

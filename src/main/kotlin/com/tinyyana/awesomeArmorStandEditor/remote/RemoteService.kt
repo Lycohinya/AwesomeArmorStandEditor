@@ -15,7 +15,7 @@ import java.util.concurrent.ThreadFactory
 import java.util.concurrent.atomic.AtomicInteger
 
 /**
- * Remote import (`/aase import <code|url>`) and share upload (`/aase share`) against AASE Studio.
+ * Remote import (`/aase import <code|url>`) and share upload (`/aase share`) against Pose Pavilion.
  *
  * - Off (`import.remote.enabled: false`) means no HttpClient and no thread is ever created.
  * - Per-player cooldown and a server-wide cap on concurrent requests.
