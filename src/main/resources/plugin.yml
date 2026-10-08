@@ -11,7 +11,8 @@ authors: [ TinyYana ]
 website: https://tinyyana.com
 
 # No hard dependency — standalone, runs on Spigot or Paper. These are optional soft integrations
-# (reflection-guarded): LycoLib audit log, GriefPrevention/WorldGuard region checks.
+# integrations: LycoLib audit log (reflection-guarded, no-op when absent); GriefPrevention/WorldGuard are
+# listed only so they load first and their protection listeners answer our synthetic BlockPlaceEvent probe.
 softdepend: [ LycoLib, GriefPrevention, WorldGuard ]
 
 # Paper/Spigot library loader: kotlin stdlib version MUST match gradle/libs.versions.toml, NOT shaded.

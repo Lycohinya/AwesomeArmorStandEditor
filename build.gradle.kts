@@ -45,6 +45,8 @@ tasks {
         archiveClassifier.set("")
         // Relocate Adventure so it never clashes with Paper's native copy or another plugin's shade.
         relocate("net.kyori", "com.tinyyana.awesomeArmorStandEditor.libs.kyori")
+        // Rewrites META-INF/services entries too, so no service file is left under the old net.kyori names.
+        mergeServiceFiles()
     }
 
     runServer {
